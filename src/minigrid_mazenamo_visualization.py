@@ -38,7 +38,7 @@ def get_rule_relaxed_grid(grid, ignored_objects):
     return grid
 
 def visualize_one_problem(problem_map_dir, problem_idx, args):
-    problem_map_file = f"{problem_map_dir}/namo_map_{problem_idx}.pkl"
+    problem_map_file = f"{problem_map_dir}/mazenamo_map_{problem_idx}.pkl"
     with open(problem_map_file, "rb") as f:
         problem_dict = pkl.load(f)
 
@@ -60,7 +60,7 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
     np.save("mazenamo_grid.npy", grid)
     mazenamo_env.gen_grid(args.problem_size, args.problem_size)
     mazenamo_env.reset()
-    imageio.imwrite(f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}"
+    imageio.imwrite(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}"
                     f"_{args.problem_mode}_{problem_idx}_original_problem.jpg", mazenamo_env.get_frame(highlight=False))
 
     assert args.planner_type in ["pure", "ploi", "cmpl", "relx", "flax"], "Unknown planner type!"
@@ -102,7 +102,7 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
     env = pddlgym.make("PDDLEnv{}-v0".format(domain_name+"Test"))
     _idx = None
     for i, prob in enumerate(env.problems):
-        if f"namo_problem_{problem_idx}.pddl" in prob.problem_fname:
+        if f"mazenamo_problem_{problem_idx}.pddl" in prob.problem_fname:
             _idx = i
             env.fix_problem_index(_idx)
             break
@@ -140,7 +140,7 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
         # mazenamo_env.render()
         frames.append(mazenamo_env.get_frame(highlight=False))
 
-    imageio.mimsave(f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+    imageio.mimsave(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
                     f"_{problem_idx}_{args.planner_type}_solution_{seed}.gif", frames, fps=5)
 
     if "gnn_ignored_objects" in vis_info and vis_info["gnn_ignored_objects"] is not None:
@@ -154,12 +154,12 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
             size=None,
             agent_start_dir=DIRECTIONS.index(robot_direction),
         )
-        _namo_env = _vec_env.env.env
-        _namo_env.gen_grid(args.problem_size, args.problem_size)
-        _namo_env.reset()
-        imageio.imwrite(f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
-                        f"_{problem_idx}_{args.planner_type}_gnn-relaxed_problem_{seed}.jpg", _namo_env.get_frame(highlight=False))
-        
+        _mazenamo_env = _vec_env.env.env
+        _mazenamo_env.gen_grid(args.problem_size, args.problem_size)
+        _mazenamo_env.reset()
+        imageio.imwrite(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+                        f"_{problem_idx}_{args.planner_type}_gnn-relaxed_problem_{seed}.jpg", _mazenamo_env.get_frame(highlight=False))
+
         if args.draw_scores:
             for threshold, ignored_objects in vis_info["gnn_ignored_objects_threshold_dict"].items():
                 _grid = get_gnn_relaxed_grid(grid.copy(), ignored_objects)
@@ -172,11 +172,11 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
                     size=None,
                     agent_start_dir=DIRECTIONS.index(robot_direction),
                 )
-                _namo_env = _vec_env.env.env
-                _namo_env.gen_grid(args.problem_size, args.problem_size)
-                _namo_env.reset()
-                imageio.imwrite(f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
-                                f"_{problem_idx}_{args.planner_type}_gnn-relaxed_problem_{seed}_{threshold:.5f}.jpg", _namo_env.get_frame(highlight=False))
+                _mazenamo_env = _vec_env.env.env
+                _mazenamo_env.gen_grid(args.problem_size, args.problem_size)
+                _mazenamo_env.reset()
+                imageio.imwrite(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+                                f"_{problem_idx}_{args.planner_type}_gnn-relaxed_problem_{seed}_{threshold:.5f}.jpg", _mazenamo_env.get_frame(highlight=False))
 
     if "cmpl_ignored_objects" in vis_info and vis_info["cmpl_ignored_objects"] is not None:
         _grid = get_gnn_relaxed_grid(grid.copy(), vis_info["cmpl_ignored_objects"])
@@ -190,11 +190,11 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
             size=None,
             agent_start_dir=DIRECTIONS.index(robot_direction),
         )
-        _namo_env = _vec_env.env.env
-        _namo_env.gen_grid(args.problem_size, args.problem_size)
-        _namo_env.reset()
-        imageio.imwrite(f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
-                        f"_{problem_idx}_{args.planner_type}_enhanced_problem_{seed}.jpg", _namo_env.get_frame(highlight=False))
+        _mazenamo_env = _vec_env.env.env
+        _mazenamo_env.gen_grid(args.problem_size, args.problem_size)
+        _mazenamo_env.reset()
+        imageio.imwrite(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+                        f"_{problem_idx}_{args.planner_type}_enhanced_problem_{seed}.jpg", _mazenamo_env.get_frame(highlight=False))
 
     if "relx_ignored_objects" in vis_info and vis_info["relx_ignored_objects"] is not None:
         _grid = get_rule_relaxed_grid(grid.copy(), vis_info["relx_ignored_objects"])
@@ -208,21 +208,21 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
             size=None,
             agent_start_dir=DIRECTIONS.index(robot_direction),
         )
-        _namo_env = _vec_env.env.env
-        _namo_env.gen_grid(args.problem_size, args.problem_size)
-        _namo_env.reset()
-        frames = [_namo_env.get_frame(highlight=False)]
+        _mazenamo_env = _vec_env.env.env
+        _mazenamo_env.gen_grid(args.problem_size, args.problem_size)
+        _mazenamo_env.reset()
+        frames = [_mazenamo_env.get_frame(highlight=False)]
         for move in vis_info["relaxed_plan"]:
             action_name = move.__str__().split('(')[0]
             action = PDDL_ACTIONNAME_TO_INT[action_name]
-            obs, rewards, dones, _, info = _namo_env.step(action)
-            # _namo_env.render()
-            frames.append(_namo_env.get_frame(highlight=False))
+            obs, rewards, dones, _, info = _mazenamo_env.step(action)
+            # _mazenamo_env.render()
+            frames.append(_mazenamo_env.get_frame(highlight=False))
 
         if seed == 0:
-            imageio.imwrite(f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+            imageio.imwrite(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
                             f"_{problem_idx}_{args.planner_type}_rule-relaxed_problem.jpg", frames[0])
-        imageio.mimsave(f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+        imageio.mimsave(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
                         f"_{problem_idx}_{args.planner_type}_rule-relaxed_solution_{seed}.gif", frames, fps=5)
 
     if args.draw_scores and "object_to_score" in vis_info and vis_info["object_to_score"] is not None:
@@ -277,9 +277,9 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
             elif obj.var_type == "pos":
                 x, y = (int(obj.name[1:]))%args.problem_size, (int(obj.name[1:]))//args.problem_size
                 pos_scores[y, x] = score
-        plot_scores_grid(box_scores, f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+        plot_scores_grid(box_scores, f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
                         f"_{problem_idx}_object_scores_{seed}.png")
-        plot_scores_grid(pos_scores, f"{args.vis_log_dir}/namo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
+        plot_scores_grid(pos_scores, f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}_{args.problem_mode}"
                         f"_{problem_idx}_pos_scores_{seed}.png")
 
 
@@ -296,7 +296,7 @@ if __name__ == "__main__":
     parser.add_argument("--planner_type", required=True, type=str)
     parser.add_argument("--timeout", required=True, type=float)
     parser.add_argument("--cmpl_rules", type=str, default="config/mazenamo_complementary_rules.json")
-    parser.add_argument("--relx_rules", type=str, default="config/mazenamo_relaxation_rules.json")
+    parser.add_argument("--relx_rules", type=str, default="config/mazenamo_relaxation_rules_1.json")
     parser.add_argument("--vis_log_dir", type=str, default="vis")
     parser.add_argument("--draw_scores", default=False, action="store_true",)
     args = parser.parse_args()
