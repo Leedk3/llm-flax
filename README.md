@@ -109,6 +109,12 @@ pip install usd-core  # named pxr when importing, used to handle usd files
 Download usd files here:
 ```
 https://drive.google.com/file/d/1Jg4G-aZOua9H5BjGLgwRbY28F0TyK66f/view?usp=sharing
+
+# You may use gdown
+mkdir -p assets \
+&& gdown https://drive.google.com/uc?id=1Jg4G-aZOua9H5BjGLgwRbY28F0TyK66f -O tmp.zip \
+&& bsdtar --strip-components=1 -xf tmp.zip -C assets \
+&& rm tmp.zip
 ```
 
 The file structure should be:
