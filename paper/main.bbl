@@ -36,6 +36,11 @@ Y.~Chen \emph{et~al.}, ``Graph-ploi: Graph neural networks for planning with
   learned object importance,'' in \emph{International Conference on Robotics
   and Automation}, 2024.
 
+\bibitem{du2026fast}
+Q.~Du, B.~Li, Y.~Du, S.~Su, T.~Fu, Z.~Zhan, Z.~Zhao, and C.~Wang, ``Fast task
+  planning with neuro-symbolic relaxation,'' \emph{IEEE Robotics and Automation
+  Letters}, 2026, arXiv:2507.15975.
+
 \bibitem{brown2020language}
 T.~Brown, B.~Mann, N.~Ryder, \emph{et~al.}, ``Language models are few-shot
   learners,'' \emph{Advances in Neural Information Processing Systems},
@@ -45,6 +50,51 @@ T.~Brown, B.~Mann, N.~Ryder, \emph{et~al.}, ``Language models are few-shot
 J.~Wei, X.~Wang, D.~Schuurmans, \emph{et~al.}, ``Chain-of-thought prompting
   elicits reasoning in large language models,'' \emph{Advances in Neural
   Information Processing Systems}, vol.~35, pp. 24\,824--24\,837, 2022.
+
+\bibitem{hoffmann2001ff}
+J.~Hoffmann and B.~Nebel, ``The {FF} planning system: Fast plan generation
+  through heuristic search,'' \emph{Journal of Artificial Intelligence
+  Research}, vol.~14, pp. 253--302, 2001.
+
+\bibitem{fikes1971strips}
+R.~E. Fikes and N.~J. Nilsson, ``{STRIPS}: A new approach to the application of
+  theorem proving to problem solving,'' \emph{Artificial Intelligence}, vol.~2,
+  no. 3-4, pp. 189--208, 1971.
+
+\bibitem{garrett2020pddlstream}
+C.~R. Garrett, T.~Lozano-P{\'e}rez, and L.~P. Kaelbling, ``{PDDLStream}:
+  Integrating symbolic planners and blackbox samplers via optimistic adaptive
+  planning,'' in \emph{Proceedings of the International Conference on Automated
+  Planning and Scheduling}, vol.~30, 2020, pp. 440--448.
+
+\bibitem{silver2022neurosymbolic}
+T.~Silver, A.~Athalye, J.~B. Tenenbaum, T.~Lozano-P{\'e}rez, and L.~P.
+  Kaelbling, ``Learning neuro-symbolic skills for bilevel planning,'' in
+  \emph{Conference on Robot Learning}, 2022, arXiv:2206.10680.
+
+\bibitem{chitnis2022learning}
+R.~Chitnis, T.~Silver, J.~B. Tenenbaum, T.~Lozano-Perez, and L.~P. Kaelbling,
+  ``Learning neuro-symbolic relational transition models for bilevel
+  planning,'' in \emph{2022 IEEE/RSJ International Conference on Intelligent
+  Robots and Systems (IROS)}.\hskip 1em plus 0.5em minus 0.4em\relax IEEE,
+  2022, pp. 4166--4173.
+
+\bibitem{silver2023predicate}
+T.~Silver, R.~Chitnis, N.~Kumar, W.~McClinton, T.~Lozano-P{\'e}rez,
+  L.~Kaelbling, and J.~B. Tenenbaum, ``Predicate invention for bilevel
+  planning,'' in \emph{Proceedings of the AAAI Conference on Artificial
+  Intelligence}, vol.~37, no.~10, 2023, pp. 12\,120--12\,129.
+
+\bibitem{kumar2023learning}
+N.~Kumar, W.~McClinton, R.~Chitnis, T.~Silver, T.~Lozano-P{\'e}rez, and L.~P.
+  Kaelbling, ``Learning efficient abstract planning models that choose what to
+  predict,'' in \emph{Conference on Robot Learning}, 2023, pp. 2070--2095.
+
+\bibitem{li2024logicity}
+B.~Li, Z.~Li, Q.~Du, J.~Luo, W.~Wang, Y.~Xie, \emph{et~al.}, ``{LogiCity}:
+  Advancing neuro-symbolic {AI} with abstract urban simulation,'' in
+  \emph{Advances in Neural Information Processing Systems}, vol.~37, 2024, pp.
+  69\,840--69\,864.
 
 \bibitem{ahn2022can}
 M.~Ahn, A.~Brohan, N.~Brown, \emph{et~al.}, ``Do as i can, not as i say:

@@ -19,6 +19,7 @@
 \usepackage{pifont}
 \usepackage{nicefrac}
 \usepackage{stfloats}
+\usepackage{rotating}
 
 \let\llncssubparagraph\subparagraph
 \let\subparagraph\paragraph
@@ -56,9 +57,9 @@ with Large Language Models
 
 \author{Seongmin Kim$^{1}$, Daegyu Lee$^{2*}$%
 % \thanks{Manuscript submitted: April, 2026.}
-\thanks{$^{1}$Seongmin Kim is with the Department of Physical AI Engineering, Jeonbuk National University}
-\thanks{$^{2}$Daegyu Lee is with Faculty of Department of Advanced Defense Technology and Industry, Jeonbuk National University}
-\thanks{$^{*}$corresponding author}
+\thanks{$^{1}$Seongmin Kim is with the Department of Physical AI Engineering, Jeonbuk National University(JBNU)}
+\thanks{$^{2}$Daegyu Lee is with Faculty of Department of Advanced Defense Technology and Industry, Jeonbuk National University(JBNU)}
+\thanks{$^{*}$Corresponding author}
 }
 
 \begin{document}
@@ -67,18 +68,16 @@ with Large Language Models
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{abstract}
-Deploying a neuro-symbolic task planner on a new domain today requires hours of manual work:
-a domain expert must author relaxation rules and complementary rules, and hundreds of training problems must be solved to train a Graph Neural Network (GNN) object scorer.
-We propose \method, a framework that eliminates all three sources of manual effort using a locally hosted LLM.
-Given only a PDDL domain file, Stage~1 generates relaxation and complementary rules automatically via structured prompting with format validation and self-correction.
-Stage~2 introduces LLM-guided failure recovery with a budget-aware policy that prevents LLM API latency from starving the downstream relaxation fallback.
-Stage~3 replaces the domain-trained GNN entirely with zero-shot LLM object importance scoring, requiring no training data at all.
-The resulting \fullmethod system takes a PDDL file as input and produces a working planner with no manual intervention.
-We evaluate all three stages on the MazeNamo benchmark across $10{\times}10$, $12{\times}12$, and $15{\times}15$ grids at four difficulty levels (8 benchmarks total).
-Stage~1 results reveal a \emph{non-monotonic}, stacking-density-dependent pattern: on navigation-heavy tasks, LLM rules outperform the manual baseline (SR 1.000 vs.\ 0.000 on $12{\times}12$ Expert), while on stacking-heavy tasks a single over-conservative precondition causes failures.
-Averaged across all eight benchmarks, LLM-generated rules achieve SR 0.912 versus the manual baseline's 0.828---\method \emph{outperforms} the manual baseline on aggregate---with zero manual engineering.
-Stage~2 evaluation confirms the budget policy is safe: LLM recovery is neutral (SR unchanged) on both benchmarks, with the feasibility check correctly routing tight-budget problems to the reliable relaxation fallback.
-Stage~3 achieves SR 0.720 on $12{\times}12$ Hard with no training data; however, it collapses to SR 0.200 on $15{\times}15$ Hard due to a context-window bottleneck when object count exceeds the LLM's 80-fact prompt capacity.
+Deploying a neuro-symbolic task planner on a new domain today requires significant manual effort:
+a domain expert must author relaxation and complementary rules, and hundreds of training problems must be solved to supervise a Graph Neural Network (GNN) object scorer.
+We propose \method, a three-stage framework that eliminates all three sources of manual effort using a locally hosted LLM given only a PDDL domain file.
+Stage~1 automatically generates relaxation and complementary rules via structured prompting with format validation and self-correction.
+Stage~2 introduces LLM-guided failure recovery with a feasibility-gated budget policy that explicitly reserves API latency cost before each LLM call, preventing the downstream relaxation fallback from being starved.
+Stage~3 replaces the domain-trained GNN entirely with zero-shot LLM object importance scoring, requiring no training data.
+We evaluate all three stages on the MazeNamo benchmark across $10{\times}10$, $12{\times}12$, and $15{\times}15$ grids (8 benchmarks total).
+\method achieves average SR~0.912 versus the manual baseline's 0.828, outperforming it on aggregate with zero manual engineering.
+On $12{\times}12$ Expert, \method attains SR~1.000 where the manual planner fails entirely (SR~0.000); on $15{\times}15$ Hard, it achieves SR~1.000 at $6{\times}$ faster planning speed.
+Stage~3 demonstrates feasibility (SR~0.720 on $12{\times}12$ Hard with no training data) but faces a context-window bottleneck at scale, pointing to the primary open challenge for future work.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -92,12 +91,12 @@ Neuro-symbolic methods address this scalability challenge by using neural networ
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{figures/teaser.pdf}
+  \includegraphics[width=0.85\textwidth]{figures/teaser.pdf}
   \caption{Overview of \method. Given only a PDDL domain file, Stage~1 automatically generates relaxation and complementary rules; Stage~2 provides budget-aware LLM failure recovery; and Stage~3 replaces the domain-trained GNN with zero-shot LLM object scoring. Together, the full \fullmethod system deploys on a new domain with no manual engineering.}
   \label{fig:teaser}
 \end{figure*}
 
-A representative framework of this kind combines a Graph Neural Network (GNN) for object importance prediction with domain-specific symbolic rules in two roles: (1) \emph{relaxation rules} that remove non-essential objects to produce a simplified, easier-to-solve version of the problem, and (2) \emph{complementary rules} that restore object pairs connected by spatial or structural constraints~\cite{silver2021planning}.
+A representative framework of this kind, Flax~\cite{du2026fast}, combines a Graph Neural Network (GNN) for object importance prediction with domain-specific symbolic rules in two roles: (1) \emph{relaxation rules} that remove non-essential objects to produce a simplified, easier-to-solve version of the problem, and (2) \emph{complementary rules} that restore object pairs connected by spatial or structural constraints.
 Together these components enable fast, reliable planning even on expert-level maze tasks where classical planners time out.
 
 Despite strong empirical performance, deploying such a planner on a new domain requires three distinct forms of manual labor:
@@ -123,23 +122,27 @@ We evaluate all three stages on the MazeNamo benchmark and report their contribu
 \section{Related Work}
 \label{sec:related}
 
-\subsection{Learning for Scalable Task Planning}
-Classical forward-search planners such as Fast Downward~\cite{helmert2006fast} provide completeness guarantees but scale poorly with problem size.
-To overcome this, neuro-symbolic approaches couple neural components with symbolic solvers.
-PLOI~\cite{silver2021planning} introduced GNN-based object filtering for symbolic planners, reducing the grounded state space while preserving plan validity through iterative threshold lowering.
-GraphPloi~\cite{chen2024graph} extended this with richer graph representations.
-Our work builds directly on this line by preserving the neural-symbolic architecture while automating the rule engineering bottleneck.
+\subsection{Neuro-Symbolic Task Planning}
+Classical symbolic planners such as Fast Downward~\cite{helmert2006fast} and FF~\cite{hoffmann2001ff} provide completeness guarantees but scale poorly with problem size.
+STRIPS~\cite{fikes1971strips} established the foundational formalism, while PDDLStream~\cite{garrett2020pddlstream} extended it to continuous domains via blackbox samplers.
+Neuro-symbolic approaches address scalability by coupling neural components with symbolic solvers.
+PLOI~\cite{silver2021planning} introduced GNN-based object filtering, reducing the grounded state space while preserving validity through iterative threshold relaxation.
+Subsequent work explored neuro-symbolic skills~\cite{silver2022neurosymbolic}, relational transition models~\cite{chitnis2022learning}, predicate invention~\cite{silver2023predicate}, and efficient abstract planning models~\cite{kumar2023learning}.
+LogiCity~\cite{li2024logicity} further advances neuro-symbolic AI through large-scale abstract urban simulation.
+
+\textbf{The system we directly extend} is Flax~\cite{du2026fast}, which combines a GNN object scorer with hand-crafted relaxation and complementary rules to achieve fast, reliable planning on object-rich PDDL instances.
+\method preserves the Flax planning loop entirely and contributes three stages of automation on top of it, eliminating all manual domain engineering.
 
 \subsection{LLMs for Planning and Formal Reasoning}
 LLMs have been applied to task planning in multiple ways.
 SayCan~\cite{ahn2022can} grounds LLM outputs in robot affordances, while LLM+P~\cite{liu2023llm+} uses LLMs to translate natural language tasks into PDDL problems.
-PDDLego~\cite{zhang2023pddl} and recent work by~\cite{guan2023leveraging} explore LLM-assisted PDDL generation.
-Most relevant to our work, \cite{yao2023tree} demonstrates LLMs' ability to reason over structured domains with chain-of-thought prompting.
-However, none of these works address the specific challenge of automatically generating \emph{rule configurations} for an existing neuro-symbolic planner—our focus here.
+PDDLego~\cite{zhang2023pddl} and~\cite{guan2023leveraging} explore LLM-assisted PDDL generation.
+Tree-of-Thoughts~\cite{yao2023tree} and chain-of-thought prompting~\cite{wei2022chain} demonstrate LLMs' structured reasoning capabilities.
+However, none of these works address the specific challenge of automatically generating \emph{rule configurations} (relaxation and complementary rules) for an existing neuro-symbolic planner, nor do they tackle the budget-aware failure recovery problem we formalize in Stage~2.
 
 \subsection{Automated Knowledge Engineering}
 Automated PDDL domain acquisition~\cite{cresswell2013acquiring} and rule learning~\cite{law2019inductive} are classical problems in AI planning.
-Our approach differs in that we leverage an LLM's pre-trained world knowledge rather than learning from interaction traces, and we target the specific structured format required by the downstream planner rather than full domain synthesis.
+Our approach differs in that we leverage an LLM's pre-trained world knowledge rather than learning from interaction traces, and we target the specific structured JSON format required by the Flax~\cite{du2026fast} planner rather than full domain synthesis.
 
 
 \section{Background}
@@ -151,7 +154,7 @@ A plan is a sequence of grounded actions mapping $I$ to a state satisfying $G$.
 
 \subsection{Neuro-Symbolic Planning with Rules}
 \label{sec:flax_bg}
-The baseline planner we extend operates in three steps during inference:
+The baseline planner we extend, Flax~\cite{du2026fast}, operates in three steps during inference:
 
 \myparagraph{Step 1 (GNN Pruning)}
 A GNN assigns importance scores $s(o) \in [0,1]$ to each object. Starting from threshold $q = 0.81$ with decay $\gamma = 0.9$, the planner iteratively lowers $q$ and attempts to plan on the pruned object set $\mathcal{O}_1 = \{o \mid s(o) \geq q\}$ until success or timeout.
@@ -171,7 +174,7 @@ In the original system, these files are authored manually per domain.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{figures/architecture.pdf}
+  \includegraphics[width=0.85\textwidth]{figures/architecture.pdf}
   \caption{Detailed architecture of \method. \emph{Left}: Stage~1 generates relaxation and complementary rules offline from the PDDL domain file via structured LLM prompting with validation and self-correction. \emph{Center}: At test time, the three-step Flax planning loop (Step~1: threshold-decay pruning; Step~2: relaxation; Step~3: complementary expansion) is shared by all stages. \emph{Right}: Stage~2 inserts a feasibility-gated LLM recovery call between a Step~1 timeout and the Step~2 fallback; Stage~3 replaces the GNN scorer with a zero-shot LLM object scorer. Dashed components require no manual authoring or training data.}
   \label{fig:architecture}
 \end{figure*}
@@ -297,8 +300,8 @@ We evaluate on the MazeNamo benchmark~\cite{silver2021planning}: a grid-based ma
 We test on $10{\times}10$ (easy, medium, hard; $n{=}50$), $12{\times}12$ (medium, hard; $n{=}50$; expert $n{=}30$), and $15{\times}15$ (medium, hard; $n{=}30$) grids, using a GNN model trained on 200 problems.
 
 \myparagraph{Configurations}
-We evaluate Stage~1 (rule generation) across all eight benchmarks, and Stage~2 (failure recovery) on the two benchmarks where Step~1 most frequently times out.
-Stage~3 experiments are ongoing.
+We evaluate all three stages on the MazeNamo benchmark.
+Stage~1 (rule generation) is evaluated across all eight benchmarks; Stage~2 (failure recovery) on the two benchmarks where Step~1 most frequently times out; Stage~3 (zero-shot object scoring) on two representative benchmarks.
 Stage~1 compares two rule configurations, holding all other components fixed:
 \begin{itemize}[noitemsep,topsep=2pt]
     \item \textbf{Manual}: Hand-crafted rules (1 relaxation, 1 complementary). Timeouts: 10\,s / 30\,s / 40\,s for $10{\times}10$ / $12{\times}12$ / $15{\times}15$.
@@ -319,7 +322,7 @@ Stage~3 evaluates \fullmethod---replacing the GNN with \textsc{LLMObjectGuidance
 
 \begin{figure*}[!t]
     \centering
-    \includegraphics[width=\textwidth]{figures/sr_scale.pdf}
+    \includegraphics[width=0.85\textwidth]{figures/sr_scale.pdf}
     \caption{Success rate vs.\ difficulty (Manual vs.\ \method) across all grid sizes.
     Shaded columns mark benchmarks where \method outperforms Manual.
     The crossover is non-monotonic and stacking-density-driven:
@@ -331,7 +334,7 @@ Stage~3 evaluates \fullmethod---replacing the GNN with \textsc{LLMObjectGuidance
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=\textwidth]{figures/pipeline_10x10_hard_16.pdf}
+  \includegraphics[width=0.85\textwidth]{figures/pipeline_10x10_hard_16.pdf}
   \caption{\method pipeline on a $10{\times}10$ hard MazeNamo problem (problem~16, 163 objects).
   (a)~Full problem with all objects.
   (b)~Zero-shot LLM relevance scores assigned to each object (Stage~3): goal scores 1.00, nearby obstacles score 0.5--0.9, distant objects score low.
@@ -405,6 +408,18 @@ On $12{\times}12$ Expert the manual planner times out on every one of 30 problem
 At $15{\times}15$ Hard, \method achieves SR 1.000 vs 0.900 at $6{\times}$ faster speed.
 At $15{\times}15$ Medium, \method achieves SR 0.833 vs 0.967---a moderate gap, not a collapse---because while stacking exists, longer navigation paths amplify the benefit of the richer LLM complementary rules (\texttt{rat}, \texttt{oat}, \texttt{upon}).
 Averaged across all eight benchmarks, \method achieves SR 0.912 versus Manual 0.828 ($+0.084$): \emph{LLM-generated rules outperform manual rules on aggregate.}
+\fref{fig:sr_heatmap} provides a compact visual summary of the full result matrix.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/sr_heatmap.pdf}
+  \caption{Compact SR heatmap for all four configurations across all eight benchmarks.
+  Green = high SR, red = low SR. The Manual ``FAIL'' cell at $12{\times}12$ Expert and
+  the two \method cells at SR~1.000 are the most salient features.
+  The PLOI row is uniformly lower than both Manual and \method, confirming that
+  rules—not the GNN scorer—drive the performance advantage.}
+  \label{fig:sr_heatmap}
+\end{figure*}
 
 \subsection{Rule Quality Analysis}
 \label{sec:quality}
@@ -779,15 +794,27 @@ This reveals that the GNN score alone, without relaxation and complementary rule
 Third, \emph{the LLM-generated rules in \method capture the essential benefit of manual rules} across the benchmarks where rules matter, while eliminating the engineering cost entirely.
 On the two benchmarks where classical search fails ($12{\times}12$ Expert, $15{\times}15$ Hard), \method is the only configuration to achieve high SR, confirming its robustness at scale.
 
-\begin{figure*}[t]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Qualitative Visualization: Planning Traces}
+\label{app:vis}
+
+For each of the eight benchmarks we show three views of a representative solved problem:
+(a)~the full problem with all objects;
+(b)~LLM object importance scores assigned zero-shot (Stage~3);
+(c)~the pruned object set after thresholding and the final plan found by LLM-Flax.
+The left block covers the four smaller grids ($10{\times}10$ and $12{\times}12$ Medium);
+the right block covers the four harder grids ($12{\times}12$ Hard/Expert and $15{\times}15$).
+
+\begin{sidewaysfigure*}
   \centering
-  \includegraphics[width=\textwidth]{figures/sr_heatmap.pdf}
-  \caption{Compact SR heatmap for all four configurations across all eight benchmarks.
-  Green = high SR, red = low SR. The Manual ``FAIL'' cell at $12{\times}12$ Expert and
-  the two orange-shaded cells where \method achieves SR~1.000 are the most salient features.
-  The PLOI row is uniformly lower than both Manual and \method, confirming that
-  rules—not the GNN scorer—drive the performance advantage.}
-  \label{fig:sr_heatmap}
-\end{figure*}
+  \includegraphics[width=0.93\textheight, keepaspectratio]{figures/vis/vis_all.pdf}
+  \caption{Qualitative planning traces for all eight benchmarks.
+    Each row is one benchmark (label at left); columns show
+    \textbf{(a)}~the full problem,
+    \textbf{(b)}~LLM object importance scores (Stage~3, zero-shot),
+    and \textbf{(c)}~the pruned object set and final plan produced by LLM-Flax.}
+  \label{fig:vis_all}
+\end{sidewaysfigure*}
 
 \end{document}

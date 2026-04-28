@@ -1,0 +1,41 @@
+{
+   "sources" : [
+      {
+         "usage" : "toplevel",
+         "filename" : "main.tex"
+      },
+      {
+         "usage" : "ignore",
+         "filename" : "IEEEtranBST/IEEEabrv.bib"
+      },
+      {
+         "usage" : "ignore",
+         "filename" : "IEEEtranBST/IEEEbcpat.bib"
+      },
+      {
+         "usage" : "ignore",
+         "filename" : "IEEEtranBST/IEEEfull.bib"
+      },
+      {
+         "usage" : "ignore",
+         "filename" : "IEEEtranBST/IEEEtran.bst"
+      },
+      {
+         "usage" : "ignore",
+         "filename" : "IEEEtranBST/IEEEtranS.bst"
+      },
+      {
+         "usage" : "ignore",
+         "filename" : "refs/references.bib"
+      },
+      {
+         "usage" : "ignore",
+         "filename" : "refs/references_rebuttal.bib"
+      }
+   ],
+   "spec_version" : 1,
+   "texlive_version" : "2025",
+   "process" : {
+      "compiler" : "pdflatex"
+   }
+}
