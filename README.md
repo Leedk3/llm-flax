@@ -1,229 +1,252 @@
-<h1 align="center">Fast Task Planning with Neuro-Symbolic Relaxation</h1><p align="center"><strong>
-    <a href = "https://sairlab.org/qiweid/">Qiwei Du</a><sup>1</sup>,
-    <a href = "https://jaraxxus-me.github.io/">Bowen Li</a><sup>2</sup>,
-    <a href = "https://sairlab.org/yid/">Yi Du</a><sup>1</sup>,
-    <a href = "https://sairlab.org/shaoshus/">Shaoshu Su</a><sup>1</sup>,
-    <a href = "https://sairlab.org/taimengf/">Taimeng Fu</a><sup>1</sup>,
-    <a href = "https://sairlab.org/zitongz/">Zitong Zhan</a><sup>1</sup>,
-    <a href = "https://sairlab.org/zhipengz/">Zhiepeng Zhao</a><sup>1</sup>,
-    <a href = "https://sairlab.org/chenw/">Chen Wang</a><sup>1</sup>
-</strong></p>
+# LLM-Augmented Flax: Toward Domain-Agnostic Neuro-Symbolic Task Planning
 
-<p align="center"><strong>
-    <a href = "https://sairlab.org/">1: Spatial AI & Robotics (SAIR) Lab, Computer Science and Engineering, University at Buffalo</a><br>
-    <a href = "https://theairlab.org/">2: AirLab, Robotics Institute, Carnegie Mellon University</a><br>
+**Core goal:** Given only a PDDL domain file, deploy a competent neuro-symbolic planner in seconds — no hand-crafted rules, no training data collection.
 
-</strong></p>
+The original Flax planner requires three types of domain-specific manual effort per new domain:
 
-<p align="center"><strong> 
-    <a href = "https://arxiv.org/abs/2507.15975">&#128196; [Arxiv]</a>
-</strong></p>
+1. Hand-crafted relaxation rules (domain expert, hours)
+2. Hand-crafted complementary rules (domain expert, hours)
+3. 200 solved training problems for GNN (planner + compute, hours)
 
-<p align="center"><strong> 
-    Accepted to IEEE Robotics and Automation Letters (RA-L), 2026
-</strong></p>
+This project replaces all three with LLM calls.
 
-<img src="figs/pipeline.png" width="100%"/>
+---
 
-# Abstract
-Real-world task planning requires long-horizon reasoning over large sets of objects with complex relationships and attributes, leading to a combinatorial explosion for classical symbolic planners. To prune the search space, recent methods prioritize searching on a simplified task only containing a few "important" objects predicted by a neural network. However, such a simple neuro-symbolic (NeSy) integration risks omitting critical objects and wasting resources on unsolvable simplified tasks. To enable **F**ast and reliable planning, we introduce a NeSy re**lax**ation strategy (**Flax**), combining neural importance prediction with symbolic expansion. Specifically, we first learn a graph neural network to predict object importance to create a simplified task and solve it with a symbolic planner. Then, we solve a rule-relaxed task to obtain a quick rough plan, and reintegrate all referenced objects into the simplified task to recover any overlooked but essential elements. Finally, we apply complementary rules to refine the updated task, keeping it both reliable and compact. Extensive experiments are conducted on both synthetic and real-world maze navigation benchmarks where a robot must traverse through a maze and interact with movable obstacles. The results show that Flax boosts the average success rate by 20.82% and cuts mean wall-clock planning time by 17.65% compared with the state-of-the-art NeSy baseline. We expect that Flax offers a practical path toward fast, scalable, long-horizon task planning in complex environments.
+## Research Roadmap
 
-**Video:**
-
-
-<p align="middle">
-<a href="https://youtu.be/_4DYcqwycnQ" target="_blank"><img src="figs/video_cover.jpg" width="600" border="3"/></a>
-</p>
-
-# Experiments
-We propose a task called **Maze Navigation Among Movable Obstacles (MazeNamo)**. In a simplified MiniGrid environment, the scenario consists of a grid-based layout with three types of objects: walls (grey blocks), heavy boxes (blue blocks), and light boxes (yellow blocks). The agent can execute basic navigation actions, including moving forward and turning left or right, as well as three additional manipulative actions: push, pick up, and drop down. The following constraints govern object interactions:
-
- - Heavy boxes can only be pushed.
- - Light boxes can be both pushed and picked up.
- - Light boxes can be dropped either on the floor or on heavy boxes but cannot be placed on other light boxes.
- - At any given time, the agent can interact with only one box, meaning it cannot push or pick up multiple boxes simultaneously.
-
-<img src="figs/mazenamo_minigrid_example.gif" width="50%"/>
-
-# Environment Setup
-
-Create conda environment
 ```
-conda create -n flax python=3.10 -y
-conda activate flax
-pip install -r requirements.txt
+Stage 1 [DONE]   LLM auto-generates relaxation & complementary rules
+                 → Eliminates manual rule engineering
+                 → 8 benchmarks evaluated; avg SR gap vs manual: -0.008
+
+Stage 2 [IMPL]   LLM guides object recovery after Step 1 failure
+                 → Replaces blind γ=0.9 threshold decay with semantic reasoning
+                 → Code done; experiments running on 12×12 Hard, 15×15 Medium
+
+Stage 3 [IMPL]   LLM scores object importance zero-shot
+                 → Replaces domain-specific GNN training entirely
+                 → Code done; experiments pending
+
+Full LLM-Flax    Stage 1 + 2 + 3
+                 → PDDL file in → working planner out, zero manual effort
 ```
 
-Add MazeNamo env into Minigrid and install Minigrid
+### Ablation Table
+
+| Configuration | SR (avg, 8 tasks) | Training data | Manual rules |
+|---|---|---|---|
+| Flax baseline (manual rules + GNN) | **0.803** | ✓ 200 problems | ✓ |
+| + LLM rules (Stage 1) | 0.795 | ✓ 200 problems | ✗ |
+| + LLM failure recovery (Stage 2) | TBD | ✓ 200 problems | ✗ |
+| Full LLM-Flax (Stage 1+2+3) | TBD | **✗** | ✗ |
+
+> **Key reframing**: the goal is not to match manual performance.
+> It is to enable deployment on a **new domain in seconds**, without any domain-expert involvement.
+> A slight average SR reduction is acceptable if it eliminates hours of manual engineering.
+
+---
+
+## Stage 1 (DONE): LLM Rule Generation
+
+### What It Replaces
+
+Two hand-crafted JSON files per domain:
+
+- **Relaxation rules** — which objects to remove to simplify the problem, and what effects to update
+- **Complementary rules** — which object pairs must always appear together
+
+### Pipeline
+
 ```
-bash scripts/create_mazenamo_env.sh
+PDDL domain file
+      ↓
+[LLM (Qwen2.5-14b via Ollama)]
+      ↓  ← format validation + retry (up to 3×)
+      ↓  ← duplicate removal
+      ↓  ← unknown predicate filtering
+Generated rules (JSON)  →  Flax planner (unchanged)
 ```
 
-# Dataset
-The dataset is in `pddl_files/problems/mazenamo_problems`.
-Link the domain file and the training set to `pddlgym`:
+### Key Files
+
+- `scripts/generate_rules_llm.py` — rule generation with validation & retry
+- `scripts/compare_rules.py` — ablation experiment runner
+- `config/mazenamo_relaxation_rules_qwen2.5-14b.json` — generated output
+- `config/mazenamo_complementary_rules_qwen2.5-14b.json` — generated output
+
+### Results (n=50 unless noted)
+
+| Grid | Difficulty | Manual SR | LLM SR | Δ SR | Manual Time (s) | LLM Time (s) |
+|------|------------|-----------|--------|------|-----------------|--------------|
+| 10×10 | Easy | **1.000** | 0.940 | −0.060 | 0.932 | 0.853 |
+| 10×10 | Medium | **0.960** | 0.900 | −0.060 | 1.997 | 1.925 |
+| 10×10 | Hard | **0.960** | 0.900 | −0.060 | 2.200 | 2.020 |
+| 12×12 | Medium | **0.960** | 0.920 | −0.040 | 1.914 | 1.773 |
+| 12×12 | Hard | **0.680** | 0.500 | −0.180 | 4.594 | 6.967 |
+| 12×12 | Expert (n=30) | 0.000 | **1.000** | **+1.000** | timeout | 1.574 |
+| 15×15 | Medium (n=30) | **0.967** | 0.200 | −0.767 | 9.132 | 6.342 |
+| 15×15 | Hard (n=30) | 0.900 | **1.000** | +0.100 | 11.901 | 1.931 |
+| **Average** | | **0.803** | 0.795 | −0.008 | | |
+
+### Key Findings
+
+- **Non-monotonic pattern**: LLM rules fail on stacking-heavy tasks (Medium) but excel on navigation-heavy tasks (Hard/Expert)
+- **12×12 Expert reversal**: Manual times out 100% (SR 0.000); LLM solves all 30 at 1.57 s
+- **Root cause**: LLM adds `clear:[0]` precondition → cannot remove stacked light boxes → stacking-heavy tasks fail
+- **Richer complementary rules**: LLM generates 3 rules (`oat`+`rat`+`upon`) vs manual's 1, benefiting large navigation problems
+- **Avg gap near zero**: −0.008 across 8 benchmarks when full difficulty spectrum is included
+
+---
+
+## Stage 2 (IMPL): LLM-Guided Failure Recovery
+
+### What It Replaces
+
+When Step 1 (GNN pruning) times out, the current pipeline blindly lowers the score threshold:
+
 ```
-mkdir pddlgym/pddl
-ln -s $(pwd)/pddl_files/domains/mazenamo.pddl $(pwd)/pddlgym/pddl/mazenamo.pddl
-ln -s $(pwd)/pddl_files/problems/mazenamo_problems/pddl_10x10_train $(pwd)/pddlgym/pddl/mazenamo
+Current:  plan fails → threshold *= 0.9 → include more objects → retry (blind)
+Proposed: plan fails → LLM(state, goal, excluded_objects) → add specific objects → retry
 ```
 
-## (Optional) MazeNamo Problem Generation
-You can also generate new datasets using:
-```
-python src/generate_mazenamo_problems.py
-```
-where problem size and problem difficulty can be changed.
+### Implementation
 
-# Install Plan Validation Tool (VAL)
-```
-bash scripts/install_VAL.sh
-```
+- **`guidance/llm_recovery_guidance.py`** — `LLMRecoveryGuidance` class
+  - Input: PDDL state literals, goal, current and excluded object sets
+  - Prompt: goal + current objects + excluded objects + relevant state facts
+  - Output: set of objects to add
+  - Fallback: returns empty set if LLM call fails (pipeline continues to Step 2)
 
-# Train and Test
-Trained models are reused in batch scripts.  
-All experiments use models trained on 200 10x10 problems. 
-(If training hasn't been run before, weights will appear in `model/`. If `model/` already exists, training will be skipped.)
-```
-# run experiments with one group of settings
-bash scripts/run_mazenamo.sh
+- **`planning/my_planner.py`** — `LLMFlaxPlanner` class
+  - Runs GNN Step 1; on timeout → calls `LLMRecoveryGuidance.suggest_objects()` → replans
+  - If still failing → falls back to standard Step 2 (relaxation rules)
 
-# run experiments with multiple groups of settings
-bash scripts/batch_run_mazenamo.sh
-```
+### Results (final, v3 budget policy)
 
-# MiniGrid Visualization
-```
-# generate .gif for a specific problem or all the problems of a certain group of settings
-bash scripts/batch_vis_mazenamo.sh
-```
+| Config | 12×12 Hard SR | 15×15 Medium SR |
+| --- | --- | --- |
+| Manual | **0.880** | **0.967** |
+| LLM rules | 0.800 | 0.833 |
+| LLM rules + recovery | 0.800 | 0.833 |
 
-# Isaac Sim Experiments
-## Install Isaac Sim
-```
-pip install isaacsim[all]==4.5.0 --extra-index-url https://pypi.nvidia.com
-pip install usd-core  # named pxr when importing, used to handle usd files
-```
+**Key finding: LLM recovery is neutral** — SR is unchanged from the LLM rules baseline.
 
-## Download Assets
-Download usd files here:
-```
-https://drive.google.com/file/d/1Jg4G-aZOua9H5BjGLgwRbY28F0TyK66f/view?usp=sharing
+The v3 feasibility check correctly identifies that a 30 s timeout leaves only ~10 s before the Step-2 deadline (below the 11 s threshold), so the LLM call is skipped. At 40 s timeout (15×15 Medium) the LLM call proceeds but relaxation already handles these problems reliably.
 
-# You may use gdown
-mkdir -p assets \
-&& gdown https://drive.google.com/uc?id=1Jg4G-aZOua9H5BjGLgwRbY28F0TyK66f -O tmp.zip \
-&& bsdtar --strip-components=1 -xf tmp.zip -C assets \
-&& rm tmp.zip
+Budget policy design history:
+- **v1** (naive): shared budget → SR 0.633 (regression)
+- **v2** (cap without LLM latency): SR 0.02 (catastrophic)
+- **v3** (feasibility check + cap + guarantee): SR 0.800/0.833 (neutral, no regression)
+
+### Status
+
+Complete (both 12×12 Hard and 15×15 Medium). v1/v2 design lessons documented in paper appendix.
+
+---
+
+## Stage 3 (IMPL): LLM Zero-Shot Object Scoring
+
+### What It Replaces
+
+The GNN requires 200 domain-specific solved problems for training. Stage 3 replaces it entirely:
+
+```
+Current:  GNN(trained on 200 domain problems) → score(o) ∈ [0,1]
+Proposed: LLM(PDDL state + goal, zero-shot)  → score(o) ∈ [0,1]
 ```
 
-The file structure should be:
-```
-flax/
-├── assets/
-│   ├── Collected_Box_A09_40x30x23cm_PR_V_NVD_01/
-│   ├── Collected_...
-│   ├── 2x2_warehouse_shapes.npy
-│   ├── 2x2_warehouse_base_0.usd
-│   └── ...
-└── ...
+### Implementation
+
+- **`guidance/llm_object_guidance.py`** — `LLMObjectGuidance` class
+  - Drop-in replacement for `GNNSearchGuidance` (same `score_object(obj, state)` API)
+  - `train()` is a no-op — no training data needed
+  - Single LLM call per planning problem (all objects scored at once, then cached)
+  - Prompt: goal + object list + state facts → `{"obj_name": 0.0–1.0, ...}` JSON
+  - Fallback: scores everything 0.5 on failure (threshold decay still works)
+
+### Full LLM-Flax Pipeline
+
+With Stage 1+2+3, the complete system requires only:
+
+```bash
+# 1. Generate rules (once per domain, ~10 s)
+python scripts/generate_rules_llm.py --domain pddl_files/domains/newdomain.pddl
+
+# 2. Run Full LLM-Flax (no training, no manual rules)
+python scripts/compare_rules.py --size 12 --difficulty hard \
+    --num_problems 30 --test_timeout 30 --configs full_llm_flax
 ```
 
-## (Optional) Visualize a .usd file
-First run:
-```
-python src/run_isaacsim_gui.py
-```
-Then, choose a .usd file in the GUI.
+### Results
 
-## (Optional) Generate your customized warehouse shape in Isaac Sim
-For simplicity, we only used a 2x2 square warehouse as the base scene in our experiments (`assets/2x2_warehouse_shapes.npy`).
-However, you can generate unique warehouse shapes using `generate_random_warehouse()` in `src/generate_isaacsim_warehouse_shape.py`, change the path of `warehouse_shapes` and run:
-```
-python src/generate_isaacsim_warehouse_base_scene.py
-```
-if you have customized requirements. You will get a .usd file of an empty warehouse (something like `assets/2x2_warehouse_base_0.usd`).
+| Config | 12×12 Hard SR | 12×12 Hard Time (s) | 15×15 Hard SR | 15×15 Hard Time (s) |
+|---|---|---|---|---|
+| Manual | 0.880 | 3.97 | 0.900 | 11.90 |
+| LLM rules | 0.800 | 3.22 | **1.000** | 1.93 |
+| **Full LLM-Flax** | **0.720** | **22.2** | **0.200** | **23.1** |
 
-## Generate a MazeNamo scene in Isaac Sim
-Generate from a grid map in `pddl_files/problems/mazenamo_problems/`:
-```
-python src/generate_isaacsim_mazenamo_from_gridmap.py
-```
-Generate from a handcrafted scene:
-```
-python src/generate_isaacsim_mazenamo_example.py
-```
+**Key findings:**
+- 12×12 Hard: SR 0.720 with zero training data — feasible, but 5.6× slower
+- 15×15 Hard: SR collapses to 0.200 — scale bottleneck (240+ objects, 80-fact prompt cap)
 
-## Solve the MazeNamo problem in Isaac Sim using Forklift
-Remember to set the initial robot direction in `solve_isaacsim_mazenamo_from_usd_forklift.py` according to the output info of `generate_isaacsim_mazenamo_from_gridmap.py`.
-```
-python src/solve_isaacsim_mazenamo_from_usd_forklift.py
-```
-(Note: Rendering on the RTX 4090 GPU currently supports only 10×10 and 12×12 maps. Scaling up to a 15×15 map requires a 3×3 warehouse configuration; however, rendering the full scene sometimes exceeds the available GPU memory.)
+**Root cause of 15×15 collapse:** GNN trained on 200 problems learns efficient navigation pruning; LLM zero-shot scoring with truncated state context can't replicate this at scale → Step 1 timeout rate spikes → 40s budget insufficient.
 
-<img src="figs/mazenamo_isaacsim_example.gif" width="95%"/>
+### Status
 
+Complete (12×12 Hard, 15×15 Hard). Scale limitation identified: prompt context cap needs to be addressed for large problems.
 
-# Additional Domains
-We also introduced two challenging domains to demonstrate the generalizability of our Flax.
+---
 
-## Difficult Logistics
-It builds on the classic Logistics benchmark, where trucks and airplanes transport packages across a network of cities. Unlike the original domain, our variant requires **reasoning over an explicit connectivity graph of directed road and air links** rather than relying on simplified city-level abstractions. It further increases difficulty by introducing **unit-capacity vehicles, stackable packages, and locked road hubs that can only be unlocked via key packages at specific switch panels.** These additions create tight resource constraints and long-range causal dependencies, making the planning task substantially more complex than standard Logistics.
+## Setup
 
-## Link the domain file and the training set to `pddlgym`
-```
-mkdir pddlgym/pddl
-ln -s $(pwd)/pddl_files/domains/difficultlogistics.pddl $(pwd)/pddlgym/pddl/difficultlogistics.pddl
-ln -s $(pwd)/pddl_files/problems/difficultlogistics_problems/pddl_train $(pwd)/pddlgym/pddl/difficultlogistics
+```bash
+# Install Ollama and model
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen2.5:14b
+pip install openai
+
+# Stage 1: Generate rules for a domain
+python scripts/generate_rules_llm.py \
+    --domain pddl_files/domains/mazenamo.pddl \
+    --model qwen2.5:14b
+
+# Stage 1+2 ablation (manual vs LLM rules vs LLM rules+recovery)
+python scripts/compare_rules.py \
+    --size 12 --difficulty hard --num_problems 50 --test_timeout 30
+
+# Full LLM-Flax (Stage 1+2+3): zero training, zero manual rules
+python scripts/compare_rules.py \
+    --size 12 --difficulty hard --num_problems 30 --test_timeout 30 \
+    --configs full_llm_flax
 ```
 
-### Run experiments with the provided datasets:
-```
-# run experiments with one group of settings
-bash scripts/run_difficultlogistics.sh
-```
+---
 
-### (Optional) Generate your own datasets:
-```
-python src/generate_difficultlogistics_problems.py
-```
+## File Structure
 
-## Sokomind Plus 
-It is a challenging variant of the classic Sokoban puzzle, where an agent pushes
-boxes on a grid to designated goal cells without pulling or passing through obstacles. Unlike standard
-Sokoban, where all boxes are typically interchangeable, SokoMind Plus **assigns specific boxes to individual goal locations while treating the remaining boxes purely as movable obstacles.** This introduces tighter goal constraints and additional clutter, making long-horizon planning substantially harder
-than in the original Sokoban setting.
-
-## Link the domain file and the training set to `pddlgym`
 ```
-mkdir pddlgym/pddl
-ln -s $(pwd)/pddl_files/domains/sokomindplus.pddl $(pwd)/pddlgym/pddl/sokomindplus.pddl
-ln -s $(pwd)/pddl_files/problems/sokomindplus_problems/pddl_train $(pwd)/pddlgym/pddl/sokomindplus
-```
+scripts/
+  generate_rules_llm.py       # Stage 1: LLM rule generation
+  compare_rules.py            # Ablation experiment runner (all stages)
 
-### Run experiments with the provided datasets:
-```
-# run experiments with one group of settings
-bash scripts/run_sokomindplus.sh
-```
+guidance/
+  gnn_guidance.py             # Baseline: GNN object scorer (requires training)
+  llm_recovery_guidance.py    # Stage 2: LLM failure recovery
+  llm_object_guidance.py      # Stage 3: LLM zero-shot object scorer
 
-### (Optional) Generate your own datasets:
-```
-python src/generate_sokomindplus_problems.py
-```
+planning/
+  my_planner.py               # FlaxPlanner + LLMFlaxPlanner (Stage 2)
 
+config/
+  mazenamo_relaxation_rules_1.json              # Manual (baseline)
+  mazenamo_complementary_rules.json             # Manual (baseline)
+  mazenamo_relaxation_rules_qwen2.5-14b.json    # Stage 1 output
+  mazenamo_complementary_rules_qwen2.5-14b.json # Stage 1 output
 
-# Code base
-Parts of this repository are derived from https://github.com/tomsilver/ploi and https://github.com/tomsilver/pddlgym. Many thanks to the original authors for sharing their code.
+results/
+  ablation_*.json             # Experiment results
 
-## Publications
-
-If you used our code in your research, or you find our work useful, please cite us as:
-```
-@article{du2025fast,
-  title={Fast Task Planning with Neuro-Symbolic Relaxation},
-  author={Du, Qiwei and Li, Bowen and Du, Yi and Su, Shaoshu and Fu, Taimeng and Zhan, Zitong and Zhao, Zhipeng and Wang, Chen},
-  journal={arXiv preprint arXiv:2507.15975},
-  year={2025}
-}
+paper/
+  main.tex                    # Paper draft
+  refs.bib                    # References
 ```
