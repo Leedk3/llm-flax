@@ -65,24 +65,24 @@
 \newlabel{sec:experiments}{{V}{4}{Experiments}{section.5}{}}
 \newlabel{sec:experiments@cref}{{[section][5][]V}{[1][4][]4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Setup}{4}{subsection.5.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Manual vs.\ LLM-generated rules within the Flax pipeline. SR = success rate ($\uparrow $); Time = avg.\ planning time over successful problems in seconds ($\downarrow $); Len = avg.\ plan length. Bold = better per row pair.}}{4}{table.caption.6}\protected@file@percent }
-\newlabel{tab:main}{{I}{4}{Manual vs.\ LLM-generated rules within the Flax pipeline. SR = success rate ($\uparrow $); Time = avg.\ planning time over successful problems in seconds ($\downarrow $); Len = avg.\ plan length. Bold = better per row pair}{table.caption.6}{}}
-\newlabel{tab:main@cref}{{[table][1][]I}{[1][4][]4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Results}{4}{subsection.5.2}\protected@file@percent }
 \newlabel{sec:results}{{\mbox  {V-B}}{4}{Results}{subsection.5.2}{}}
 \newlabel{sec:results@cref}{{[subsection][2][5]\mbox  {V-B}}{[1][4][]4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Rule Quality Analysis}{4}{subsection.5.3}\protected@file@percent }
+\newlabel{sec:quality}{{\mbox  {V-C}}{4}{Rule Quality Analysis}{subsection.5.3}{}}
+\newlabel{sec:quality@cref}{{[subsection][3][5]\mbox  {V-C}}{[1][4][]4}}
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Success rate vs.\ difficulty (Manual vs.\ LLM-Flax\xspace  ) across all grid sizes. Shaded columns mark benchmarks where LLM-Flax\xspace  outperforms Manual. The crossover is non-monotonic and stacking-density-driven: Manual wins on stacking-heavy tasks (all 10$\times $10, 12$\times $12 Medium/Hard, 15$\times $15 Medium), while LLM-Flax\xspace  dominates on navigation-heavy tasks (12$\times $12 Expert: SR 1.000 vs.\ ALL FAIL; 15$\times $15 Hard: 1.000 vs.\ 0.900).}}{5}{figure.caption.4}\protected@file@percent }
 \newlabel{fig:sr_scale}{{3}{5}{Success rate vs.\ difficulty (Manual vs.\ \method ) across all grid sizes. Shaded columns mark benchmarks where \method outperforms Manual. The crossover is non-monotonic and stacking-density-driven: Manual wins on stacking-heavy tasks (all 10$\times $10, 12$\times $12 Medium/Hard, 15$\times $15 Medium), while \method dominates on navigation-heavy tasks (12$\times $12 Expert: SR 1.000 vs.\ ALL FAIL; 15$\times $15 Hard: 1.000 vs.\ 0.900)}{figure.caption.4}{}}
 \newlabel{fig:sr_scale@cref}{{[figure][3][]3}{[1][4][]5}}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces LLM-Flax\xspace  pipeline on a $10{\times }10$ hard MazeNamo problem (problem~16, 163 objects). (a)~Full problem with all objects. (b)~Zero-shot LLM relevance scores assigned to each object (Stage~3): goal scores 1.00, nearby obstacles score 0.5--0.9, distant objects score low. (c)~After Step~1 threshold-based pruning: 21 objects excluded (grey), 142 retained at threshold 0.478. (d)~Step~2 relaxed sub-problem: light boxes removed via relaxation rules, yielding a rough plan. (e)~Step~3 complementary expansion: object pairs with structural constraints restored. (f)~Final plan of length 39 found in 0.8\,s.}}{5}{figure.caption.5}\protected@file@percent }
 \newlabel{fig:pipeline}{{4}{5}{\method pipeline on a $10{\times }10$ hard MazeNamo problem (problem~16, 163 objects). (a)~Full problem with all objects. (b)~Zero-shot LLM relevance scores assigned to each object (Stage~3): goal scores 1.00, nearby obstacles score 0.5--0.9, distant objects score low. (c)~After Step~1 threshold-based pruning: 21 objects excluded (grey), 142 retained at threshold 0.478. (d)~Step~2 relaxed sub-problem: light boxes removed via relaxation rules, yielding a rough plan. (e)~Step~3 complementary expansion: object pairs with structural constraints restored. (f)~Final plan of length 39 found in 0.8\,s}{figure.caption.5}{}}
 \newlabel{fig:pipeline@cref}{{[figure][4][]4}{[1][4][]5}}
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Manual vs.\ LLM-generated rules within the Flax pipeline. SR = success rate ($\uparrow $); Time = avg.\ planning time over successful problems in seconds ($\downarrow $); Len = avg.\ plan length. Bold = better per row pair.}}{6}{table.caption.6}\protected@file@percent }
+\newlabel{tab:main}{{I}{6}{Manual vs.\ LLM-generated rules within the Flax pipeline. SR = success rate ($\uparrow $); Time = avg.\ planning time over successful problems in seconds ($\downarrow $); Len = avg.\ plan length. Bold = better per row pair}{table.caption.6}{}}
+\newlabel{tab:main@cref}{{[table][1][]I}{[1][4][]6}}
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Structural differences between manual and LLM-generated relaxation rules.}}{6}{table.caption.7}\protected@file@percent }
 \newlabel{tab:rule_diff}{{II}{6}{Structural differences between manual and LLM-generated relaxation rules}{table.caption.7}{}}
-\newlabel{tab:rule_diff@cref}{{[table][2][]II}{[1][6][]6}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Rule Quality Analysis}{6}{subsection.5.3}\protected@file@percent }
-\newlabel{sec:quality}{{\mbox  {V-C}}{6}{Rule Quality Analysis}{subsection.5.3}{}}
-\newlabel{sec:quality@cref}{{[subsection][3][5]\mbox  {V-C}}{[1][6][]6}}
+\newlabel{tab:rule_diff@cref}{{[table][2][]II}{[1][4][]6}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Stage 2: LLM-Guided Failure Recovery}{6}{subsection.5.4}\protected@file@percent }
 \newlabel{sec:results_stage2}{{\mbox  {V-D}}{6}{Stage 2: LLM-Guided Failure Recovery}{subsection.5.4}{}}
 \newlabel{sec:results_stage2@cref}{{[subsection][4][5]\mbox  {V-D}}{[1][6][]6}}
