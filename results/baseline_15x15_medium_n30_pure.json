@@ -1,0 +1,11 @@
+{
+  "config": "pure",
+  "size": 15,
+  "difficulty": "medium",
+  "num_problems": 30,
+  "success_rate": 1.0,
+  "avg_time": 27.329,
+  "avg_plan_length": 31.8,
+  "num_solved": 30,
+  "failed_indices": []
+}

@@ -1,0 +1,22 @@
+{
+  "size": 10,
+  "difficulty": "easy",
+  "num_problems": 50,
+  "num_seeds": 1,
+  "results": [
+    {
+      "avg_time": 0.932265133857727,
+      "success_rate": 1.0,
+      "avg_plan_length": 17.36,
+      "wall_time_s": 50.3,
+      "config": "manual"
+    },
+    {
+      "avg_time": 0.8526482024091355,
+      "success_rate": 0.94,
+      "avg_plan_length": 17.46808510638298,
+      "wall_time_s": 63.8,
+      "config": "llm_qwen2.5-14b"
+    }
+  ]
+}

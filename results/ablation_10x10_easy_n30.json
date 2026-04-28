@@ -1,0 +1,15 @@
+{
+  "size": 10,
+  "difficulty": "easy",
+  "num_problems": 30,
+  "num_seeds": 1,
+  "results": [
+    {
+      "avg_time": 0.8950154145558675,
+      "success_rate": 1.0,
+      "avg_plan_length": 15.6,
+      "wall_time_s": 30.6,
+      "config": "manual"
+    }
+  ]
+}

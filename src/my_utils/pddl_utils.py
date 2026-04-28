@@ -1,5 +1,5 @@
 import os
-from guidance import NoSearchGuidance, GNNSearchGuidance
+from guidance import NoSearchGuidance, GNNSearchGuidance, LLMObjectGuidance
 from planning import FD
 
 DIRECTIONS = ['dirIsRight', 'dirIsDown', 'dirIsLeft', 'dirIsUp']
@@ -78,6 +78,8 @@ def _create_guider(guider_name, planner_name, num_train_problems,
                 model_dir, "bce10_model_last_seed{}".format(seed)),
             is_strips_domain=is_strips_domain,
         )
+    if guider_name == "llm-zero-shot":
+        return LLMObjectGuidance(debug=False, use_cot="none")
     raise Exception("Unrecognized guider name '{}'.".format(guider_name))
 
 def create_guider(guider_name, planner_name, num_train_problems,

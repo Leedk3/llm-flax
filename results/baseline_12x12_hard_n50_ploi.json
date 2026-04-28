@@ -1,0 +1,33 @@
+{
+  "config": "ploi",
+  "size": 12,
+  "difficulty": "hard",
+  "num_problems": 50,
+  "success_rate": 0.58,
+  "avg_time": 1.267,
+  "avg_plan_length": 26.3,
+  "num_solved": 29,
+  "failed_indices": [
+    1,
+    6,
+    9,
+    11,
+    14,
+    18,
+    19,
+    22,
+    26,
+    27,
+    31,
+    33,
+    34,
+    35,
+    37,
+    39,
+    43,
+    44,
+    47,
+    48,
+    49
+  ]
+}

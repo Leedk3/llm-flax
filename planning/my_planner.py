@@ -592,5 +592,220 @@ class FlaxPlanner(Planner):
         raise PlanningFailure("Plan not found! Reached max_iterations.")
 
 
+class LLMFlaxPlanner(Planner):
+    """Flax planner where Step 1 uses LLM-guided object recovery instead of
+    blind gamma-decay threshold lowering.
 
+    When the GNN-pruned simplified task times out, instead of geometrically
+    lowering the score threshold, we ask an LLM which specific excluded
+    objects are likely needed to solve the problem.
+
+    Steps:
+      Step 1: GNN scores objects. If plan found → return.
+              On timeout → LLM suggests which objects to add → retry once.
+      Step 2: If still failing, fall back to standard relaxation rules.
+      Step 3: Apply complementary rules.
+    """
+
+    def __init__(self, is_strips_domain, base_planner, search_guider, seed,
+                 gamma=0.9,
+                 max_iterations=1000,
+                 force_include_goal_objects=True,
+                 complementary_rules=None,
+                 relaxation_rules=None,
+                 llm_recovery=None):
+        super().__init__()
+        assert isinstance(base_planner, Planner)
+        print("Initializing {} with base planner {}, guidance {}, "
+              "LLM recovery {}".format(
+                  self.__class__.__name__,
+                  base_planner.__class__.__name__,
+                  search_guider.__class__.__name__,
+                  llm_recovery.__class__.__name__ if llm_recovery else "None"))
+        self._is_strips_domain = is_strips_domain
+        self._gamma = gamma
+        self._max_iterations = max_iterations
+        self._planner = base_planner
+        self._guidance = search_guider
+        self._rng = np.random.RandomState(seed=seed)
+        self._force_include_goal_objects = force_include_goal_objects
+        self._llm_recovery = llm_recovery
+        with open(complementary_rules, "r") as f:
+            self._complementary_rules = json.load(f)
+        with open(relaxation_rules, "r") as f:
+            self._relaxation_rules = json.load(f)
+
+    def __call__(self, domain, state, timeout):
+        act_preds = [domain.predicates[a] for a in list(domain.actions)]
+        act_space = LiteralSpace(
+            act_preds, type_to_parent_types=domain.type_to_parent_types)
+        dom_file = tempfile.NamedTemporaryFile(delete=False).name
+        prob_file = tempfile.NamedTemporaryFile(delete=False).name
+        domain.write(dom_file)
+        lits = set(state.literals)
+        if not domain.operators_as_actions:
+            lits |= set(act_space.all_ground_literals(state, valid_only=False))
+        PDDLProblemParser.create_pddl_file(
+            prob_file, state.objects, lits, "myproblem",
+            domain.domain_name, state.goal, fast_downward_order=True)
+
+        cur_objects = set()
+        start_time = time.time()
+        if self._force_include_goal_objects:
+            for lit in state.goal.literals:
+                cur_objects |= set(lit.variables)
+
+        # Score objects once with GNN
+        object_to_score = {
+            obj: self._guidance.score_object(obj, state)
+            for obj in state.objects if obj not in cur_objects
+        }
+        threshold = self._gamma
+
+        vis_info = {
+            "force_include_goal_objects": cur_objects.copy(),
+            "object_to_score": object_to_score,
+            "gnn_ignored_objects": None,
+            "gnn_ignored_objects_threshold_dict": {},
+            "llm_recovery_added": None,
+            "relx_ignored_objects": None,
+            "relaxed_plan": None,
+            "cmpl_ignored_objects": None,
+        }
+
+        # ── Step 1: GNN-guided incremental pruning ──────────────────────────
+        step1_timed_out = False
+        for _ in range(self._max_iterations):
+            unused_objs = sorted(list(state.objects - cur_objects))
+            new_objs = set()
+            while unused_objs:
+                threshold *= self._gamma
+                new_objs = {o for o in unused_objs
+                            if object_to_score.get(o, 0) > threshold}
+                if new_objs:
+                    break
+            cur_objects |= new_objs
+
+            cur_lits = {lit for lit in state.literals
+                        if all(v in cur_objects for v in lit.variables)}
+            dummy_state = State(cur_lits, cur_objects, state.goal)
+
+            print("[Step1] Planning with {}/{} objects, threshold={:.3f}...".format(
+                len(cur_objects), len(state.objects), threshold), flush=True)
+            vis_info["gnn_ignored_objects"] = state.objects - cur_objects
+            vis_info["gnn_ignored_objects_threshold_dict"][threshold] = \
+                state.objects - cur_objects
+
+            try:
+                time_elapsed = time.time() - start_time
+                plan = self._planner(domain, dummy_state,
+                                     timeout / 6 - time_elapsed)
+                if not validate_strips_plan(domain_file=dom_file,
+                                            problem_file=prob_file,
+                                            plan=plan):
+                    raise PlanningFailure("Invalid plan")
+                return plan, vis_info
+            except PlanningFailure:
+                if len(cur_objects) == len(state.objects):
+                    break
+                continue
+            except PlanningTimeout:
+                step1_timed_out = True
+                break
+
+        # ── LLM recovery (between Step 1 and Step 2) ────────────────────────
+        # Budget design:
+        #   - LLM API calls take ~3–5 s each (Qwen2.5-14b via Ollama).
+        #   - We must leave at least STEP2_MIN seconds for Step 2.
+        #   - Feasibility check: only attempt recovery if the gap between now
+        #     and the timeout/2 Step-2 deadline is large enough to cover an
+        #     estimated LLM call + a minimum recovery replan + STEP2_MIN.
+        RECOVERY_FRACTION  = 0.15   # cap replan at 15 % of total timeout
+        LLM_CALL_ESTIMATE  = 5.0    # conservative API call budget (seconds)
+        STEP2_MIN          = 5.0    # guaranteed minimum for Step 2
+
+        if step1_timed_out and self._llm_recovery is not None:
+            time_elapsed = time.time() - start_time
+            time_before_step2 = timeout / 2 - time_elapsed  # slack before Step-2 deadline
+            # Minimum needed: LLM call + 1 s replan + STEP2_MIN
+            if time_before_step2 >= LLM_CALL_ESTIMATE + 1.0 + STEP2_MIN:
+                recovery_budget = min(
+                    timeout * RECOVERY_FRACTION,
+                    time_before_step2 - LLM_CALL_ESTIMATE - STEP2_MIN
+                )
+                print("[LLM Recovery] Asking LLM for missing objects "
+                      "(budget={:.1f}s)...".format(recovery_budget), flush=True)
+                llm_added = self._llm_recovery.suggest_objects(
+                    state, cur_objects, state.objects)
+                if llm_added:
+                    print("[LLM Recovery] Adding: {}".format(
+                        [o.name for o in llm_added]), flush=True)
+                    cur_objects |= llm_added
+                    vis_info["llm_recovery_added"] = llm_added
+
+                    cur_lits = {lit for lit in state.literals
+                                if all(v in cur_objects for v in lit.variables)}
+                    dummy_state = State(cur_lits, cur_objects, state.goal)
+                    # Recompute budget using actual elapsed time after LLM call
+                    time_elapsed = time.time() - start_time
+                    actual_budget = min(
+                        recovery_budget,
+                        max(0.0, timeout / 2 - time_elapsed - STEP2_MIN / 2)
+                    )
+                    print("[LLM Recovery] Replanning with {}/{} objects "
+                          "(budget={:.1f}s)...".format(
+                              len(cur_objects), len(state.objects),
+                              actual_budget), flush=True)
+                    if actual_budget > 0.2:
+                        try:
+                            plan = self._planner(domain, dummy_state,
+                                                 actual_budget)
+                            if validate_strips_plan(domain_file=dom_file,
+                                                    problem_file=prob_file,
+                                                    plan=plan):
+                                return plan, vis_info
+                        except (PlanningFailure, PlanningTimeout):
+                            print("[LLM Recovery] Still failed, proceeding "
+                                  "to relaxation.", flush=True)
+            else:
+                print("[LLM Recovery] Skipping — only {:.1f}s before Step-2 "
+                      "deadline (need ≥{:.1f}s).".format(
+                          time_before_step2,
+                          LLM_CALL_ESTIMATE + 1.0 + STEP2_MIN),
+                      flush=True)
+
+        # ── Step 2: Relaxation rules + rough plan ────────────────────────────
+        # Guarantee Step 2 always gets at least STEP2_MIN seconds, even if
+        # recovery used up most of the first-half budget.
+        relaxed_objects, dummy_state = apply_relaxation_rules(
+            state, self._relaxation_rules, domain,
+            self._force_include_goal_objects)
+        print("[Step2] Rule-relaxed problem with {}/{} objects...".format(
+            len(relaxed_objects), len(state.objects)), flush=True)
+        vis_info["relx_ignored_objects"] = state.objects - relaxed_objects
+        try:
+            time_elapsed = time.time() - start_time
+            step2_budget = max(STEP2_MIN, timeout / 2 - time_elapsed)
+            relaxed_plan = self._planner(domain, dummy_state, step2_budget)
+            vis_info["relaxed_plan"] = relaxed_plan
+        except PlanningTimeout:
+            raise PlanningTimeout("Rule-relaxed problem planning timed out!")
+
+        objects_in_relaxed_plan = {o for act in relaxed_plan
+                                   for o in act.variables}
+        cur_objects.update(objects_in_relaxed_plan)
+
+        # ── Step 3: Complementary rules ──────────────────────────────────────
+        new_cur_objects, dummy_state = apply_complementary_rules(
+            state, cur_objects, self._complementary_rules)
+        print("[Step3] Complementary expansion: {}/{} objects...".format(
+            len(new_cur_objects), len(state.objects)), flush=True)
+        vis_info["cmpl_ignored_objects"] = state.objects - new_cur_objects
+        try:
+            time_elapsed = time.time() - start_time
+            plan = self._planner(domain, dummy_state, timeout - time_elapsed)
+        except PlanningTimeout:
+            raise PlanningTimeout("Planning timed out!")
+
+        return plan, vis_info
 

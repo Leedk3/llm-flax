@@ -1,0 +1,89 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{#1}
+\csname url@rmstyle\endcsname
+\providecommand{\newblock}{\relax}
+\providecommand{\bibinfo}[2]{#2}
+\providecommand\BIBentrySTDinterwordspacing{\spaceskip=0pt\relax}
+\providecommand\BIBentryALTinterwordstretchfactor{4}
+\providecommand\BIBentryALTinterwordspacing{\spaceskip=\fontdimen2\font plus
+\BIBentryALTinterwordstretchfactor\fontdimen3\font minus
+  \fontdimen4\font\relax}
+\providecommand\BIBforeignlanguage[2]{{%
+\expandafter\ifx\csname l@#1\endcsname\relax
+\typeout{** WARNING: IEEEtran.bst: No hyphenation pattern has been}%
+\typeout{** loaded for the language `#1'. Using the pattern for}%
+\typeout{** the default language instead.}%
+\else
+\language=\csname l@#1\endcsname
+\fi
+#2}}
+
+\bibitem{helmert2006fast}
+M.~Helmert, ``The fast downward planning system,'' vol.~26, 2006, pp. 191--246.
+
+\bibitem{edelkamp2004pddl2}
+S.~Edelkamp and J.~Hoffmann, ``{PDDL2.2}: The language for the classical part
+  of the 4th international planning competition,'' 2004.
+
+\bibitem{silver2021planning}
+T.~Silver, K.~Allen, A.~Lew, L.~P. Kaelbling, and J.~Tenenbaum, ``Planning with
+  learned object importance in large problem instances,'' in \emph{Proceedings
+  of the AAAI Conference on Artificial Intelligence}, vol.~35, no.~13, 2021,
+  pp. 11\,738--11\,746.
+
+\bibitem{chen2024graph}
+Y.~Chen \emph{et~al.}, ``Graph-ploi: Graph neural networks for planning with
+  learned object importance,'' in \emph{International Conference on Robotics
+  and Automation}, 2024.
+
+\bibitem{brown2020language}
+T.~Brown, B.~Mann, N.~Ryder, \emph{et~al.}, ``Language models are few-shot
+  learners,'' \emph{Advances in Neural Information Processing Systems},
+  vol.~33, pp. 1877--1901, 2020.
+
+\bibitem{wei2022chain}
+J.~Wei, X.~Wang, D.~Schuurmans, \emph{et~al.}, ``Chain-of-thought prompting
+  elicits reasoning in large language models,'' \emph{Advances in Neural
+  Information Processing Systems}, vol.~35, pp. 24\,824--24\,837, 2022.
+
+\bibitem{ahn2022can}
+M.~Ahn, A.~Brohan, N.~Brown, \emph{et~al.}, ``Do as i can, not as i say:
+  Grounding language in robotic affordances,'' in \emph{Conference on Robot
+  Learning}, 2022.
+
+\bibitem{liu2023llm+}
+B.~Liu, Y.~Jiang, X.~Zhang, \emph{et~al.}, ``{LLM+P}: Empowering large language
+  models with optimal planning proficiency,'' \emph{arXiv preprint
+  arXiv:2304.11477}, 2023.
+
+\bibitem{zhang2023pddl}
+M.~Zhang \emph{et~al.}, ``{PDDL}-based planning with large language models,''
+  in \emph{International Conference on Automated Planning and Scheduling},
+  2023.
+
+\bibitem{guan2023leveraging}
+L.~Guan, K.~Valmeekam, S.~Gao, and S.~Kambhampati, ``Leveraging pre-trained
+  large language models to construct and utilize world models for model-based
+  task planning,'' in \emph{Advances in Neural Information Processing Systems},
+  vol.~36, 2023.
+
+\bibitem{yao2023tree}
+S.~Yao, D.~Yu, J.~Zhao, \emph{et~al.}, ``Tree of thoughts: Deliberate problem
+  solving with large language models,'' in \emph{Advances in Neural Information
+  Processing Systems}, vol.~36, 2023.
+
+\bibitem{cresswell2013acquiring}
+S.~Cresswell, T.~L. McCluskey, and M.~M. West, ``Acquiring planning domain
+  models using {LOCM},'' \emph{The Knowledge Engineering Review}, vol.~28,
+  no.~2, pp. 195--213, 2013.
+
+\bibitem{law2019inductive}
+M.~Law, A.~Russo, and K.~Broda, ``Inductive learning of answer set programs for
+  autonomous planning,'' in \emph{Proceedings of the 28th International Joint
+  Conference on Artificial Intelligence}, 2019.
+
+\bibitem{qwen2025qwen25}
+Q.~Team, ``Qwen2.5 technical report,'' \emph{arXiv preprint arXiv:2412.15115},
+  2024.
+
+\end{thebibliography}

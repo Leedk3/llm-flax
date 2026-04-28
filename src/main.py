@@ -4,8 +4,9 @@ import argparse
 import pddlgym
 from pddlgym.structs import LiteralConjunction
 from planning import PlanningTimeout, PlanningFailure, \
-    validate_strips_plan, verify_validate_installed, IncrementalPlanner, ComplementaryPlanner, PureRelaxationPlanner, FlaxPlanner
-from guidance import NoSearchGuidance, GNNSearchGuidance
+    validate_strips_plan, verify_validate_installed, IncrementalPlanner, ComplementaryPlanner, PureRelaxationPlanner, FlaxPlanner, LLMFlaxPlanner
+from guidance.llm_recovery_guidance import LLMRecoveryGuidance
+from guidance import NoSearchGuidance, GNNSearchGuidance, LLMObjectGuidance
 from my_utils.pddl_utils import _create_planner
 
 
@@ -87,6 +88,14 @@ def _create_guider(guider_name, planner_name, num_train_problems,
                 model_dir, "bce10_model_last_seed{}".format(seed)),
             is_strips_domain=is_strips_domain,
         )
+    if guider_name == "llm-zero-shot":
+        return LLMObjectGuidance(debug=False, use_cot="none")
+    if guider_name == "llm-cot":
+        return LLMObjectGuidance(debug=False, use_cot="full")
+    if guider_name == "llm-cot-lite":
+        return LLMObjectGuidance(debug=False, use_cot="lite")
+    if guider_name == "llm-topk":
+        return LLMObjectGuidance(debug=False, use_cot="topk", topk=40, topk_default=0.1)
     raise Exception("Unrecognized guider name '{}'.".format(guider_name))
 
 
@@ -104,7 +113,7 @@ def _run(domain_name, train_planner_name, test_planner_name,
         num_seeds, num_train_problems, num_test_problems), flush=True)
     print("\n\n")
 
-    assert planner_type in ["pure", "ploi", "cmpl", "relx", "flax"], "Unknown planner type!"
+    assert planner_type in ["pure", "ploi", "cmpl", "relx", "flax", "llmflax"], "Unknown planner type!"
 
     planner = _create_planner(test_planner_name)
     pddlgym_env_names = {"MazeNamo": "Mazenamo", "DifficultLogistics": "Difficultlogistics", "SokomindPlus": "Sokomindplus"}
@@ -142,8 +151,15 @@ def _run(domain_name, train_planner_name, test_planner_name,
         elif planner_type == "flax":
             planner_to_test = FlaxPlanner(
                 is_strips_domain=is_strips_domain,
-                base_planner=planner, search_guider=guider, seed=seed, 
+                base_planner=planner, search_guider=guider, seed=seed,
                 complementary_rules=cmpl_rules, relaxation_rules=relx_rules)
+        elif planner_type == "llmflax":
+            llm_recovery = LLMRecoveryGuidance(debug=False)
+            planner_to_test = LLMFlaxPlanner(
+                is_strips_domain=is_strips_domain,
+                base_planner=planner, search_guider=guider, seed=seed,
+                complementary_rules=cmpl_rules, relaxation_rules=relx_rules,
+                llm_recovery=llm_recovery)
 
         planning_time, success_rate, plan_length, failure_problem_list = _test_planner(planner_type, planner_to_test, domain_name+"Test",
                       num_problems=num_test_problems, timeout=test_timeout)

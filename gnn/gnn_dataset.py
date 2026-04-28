@@ -47,8 +47,8 @@ def create_super_graph(batches):
         'n_edge': torch.from_numpy(num_edges), 
         'nodes': torch.from_numpy(nodes).float().requires_grad_(), 
         'edges': torch.from_numpy(edges).float().requires_grad_(), 
-        'receivers': torch.LongTensor(list(map(int, receivers))), 
-        'senders': torch.LongTensor(list(map(int, senders))),
+        'receivers': torch.LongTensor(receivers.flatten().tolist()),
+        'senders': torch.LongTensor(senders.flatten().tolist()),
         'globals': torch.from_numpy(globals).float().requires_grad_() if globals is not None else None,
     }
 

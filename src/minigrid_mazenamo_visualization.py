@@ -13,7 +13,8 @@ from my_utils.pddl_utils import *
 import pddlgym
 from pddlgym.structs import LiteralConjunction
 from planning import PlanningTimeout, PlanningFailure, \
-    validate_strips_plan, IncrementalPlanner, ComplementaryPlanner, PureRelaxationPlanner, FlaxPlanner
+    validate_strips_plan, IncrementalPlanner, ComplementaryPlanner, PureRelaxationPlanner, FlaxPlanner, LLMFlaxPlanner
+from guidance.llm_recovery_guidance import LLMRecoveryGuidance
 
 
 def get_gnn_relaxed_grid(grid, ignored_objects):
@@ -63,7 +64,7 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
     imageio.imwrite(f"{args.vis_log_dir}/mazenamo_{args.problem_size}x{args.problem_size}"
                     f"_{args.problem_mode}_{problem_idx}_original_problem.jpg", mazenamo_env.get_frame(highlight=False))
 
-    assert args.planner_type in ["pure", "ploi", "cmpl", "relx", "flax"], "Unknown planner type!"
+    assert args.planner_type in ["pure", "ploi", "cmpl", "relx", "flax", "llmflax"], "Unknown planner type!"
 
     planner = create_planner(args.test_planner_name)
     pddlgym_env_names = {"MazeNamo": "Mazenamo"}
@@ -90,13 +91,20 @@ def visualize_one_problem(problem_map_dir, problem_idx, args):
     elif args.planner_type == "cmpl":
         planner_to_test = ComplementaryPlanner(
             is_strips_domain=is_strips_domain,
-            base_planner=planner, search_guider=guider, seed=seed, 
+            base_planner=planner, search_guider=guider, seed=seed,
             complementary_rules=args.cmpl_rules)
     elif args.planner_type == "flax":
         planner_to_test = FlaxPlanner(
             is_strips_domain=is_strips_domain,
-            base_planner=planner, search_guider=guider, seed=seed, 
+            base_planner=planner, search_guider=guider, seed=seed,
             complementary_rules=args.cmpl_rules, relaxation_rules=args.relx_rules)
+    elif args.planner_type == "llmflax":
+        llm_recovery = LLMRecoveryGuidance(debug=False)
+        planner_to_test = LLMFlaxPlanner(
+            is_strips_domain=is_strips_domain,
+            base_planner=planner, search_guider=guider, seed=seed,
+            complementary_rules=args.cmpl_rules, relaxation_rules=args.relx_rules,
+            llm_recovery=llm_recovery)
 
     print("Running testing...")
     env = pddlgym.make("PDDLEnv{}-v0".format(domain_name+"Test"))

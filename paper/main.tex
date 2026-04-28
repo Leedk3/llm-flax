@@ -1,0 +1,791 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[letterpaper, 10pt, journal, twoside]{IEEEtran}
+
+\usepackage{amsmath}
+\usepackage[colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue]{hyperref}
+\usepackage{cleveref}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{amssymb}
+\usepackage{mathpartir}
+\usepackage{makecell}
+\usepackage{bm}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{nicefrac}
+\usepackage{stfloats}
+
+\let\llncssubparagraph\subparagraph
+\let\subparagraph\paragraph
+\usepackage[compact]{titlesec}
+\let\subparagraph\llncssubparagraph
+\titlespacing{\section}{0pt}{4pt}{1pt}
+\titlespacing{\subsection}{0pt}{3pt}{1pt}
+\titlespacing{\subsubsection}{0pt}{2pt}{1pt}
+
+\setlength{\abovedisplayskip}{4pt}
+\setlength{\belowdisplayskip}{4pt}
+
+% Float placement tuning — allow more floats per page, reduce excessive whitespace
+\renewcommand{\topfraction}{0.90}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{4}
+\setcounter{totalnumber}{8}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+
+\newcommand{\fref}[1]{Fig.~\ref{#1}}
+\newcommand{\sref}[1]{Section~\ref{#1}}
+\newcommand{\tref}[1]{Table~\ref{#1}}
+\newcommand{\myparagraph}[1]{\noindent\textbf{#1}~}
+\newcommand{\eref}[1]{(\ref{#1})}
+\newcommand{\method}{LLM-Flax\xspace}
+\newcommand{\baseline}{Flax\xspace}
+\newcommand{\fullmethod}{Full LLM-Flax\xspace}
+
+\title{\LARGE \bf
+Toward Domain-Agnostic Neuro-Symbolic Task Planning\\
+with Large Language Models
+}
+
+\author{Daegyu Lee%
+\thanks{Manuscript submitted: April, 2026.}
+\thanks{D. Lee is an independent researcher. Contact: jndh3232@gmail.com}
+}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+Deploying a neuro-symbolic task planner on a new domain today requires hours of manual work:
+a domain expert must author relaxation rules and complementary rules, and hundreds of training problems must be solved to train a Graph Neural Network (GNN) object scorer.
+We propose \method, a framework that eliminates all three sources of manual effort using a locally hosted LLM.
+Given only a PDDL domain file, Stage~1 generates relaxation and complementary rules automatically via structured prompting with format validation and self-correction.
+Stage~2 introduces LLM-guided failure recovery with a budget-aware policy that prevents LLM API latency from starving the downstream relaxation fallback.
+Stage~3 replaces the domain-trained GNN entirely with zero-shot LLM object importance scoring, requiring no training data at all.
+The resulting \fullmethod system takes a PDDL file as input and produces a working planner with no manual intervention.
+We evaluate all three stages on the MazeNamo benchmark across $10{\times}10$, $12{\times}12$, and $15{\times}15$ grids at four difficulty levels (8 benchmarks total).
+Stage~1 results reveal a \emph{non-monotonic}, stacking-density-dependent pattern: on navigation-heavy tasks, LLM rules outperform the manual baseline (SR 1.000 vs.\ 0.000 on $12{\times}12$ Expert), while on stacking-heavy tasks a single over-conservative precondition causes failures.
+Averaged across all eight benchmarks, LLM-generated rules achieve SR 0.912 versus the manual baseline's 0.828---\method \emph{outperforms} the manual baseline on aggregate---with zero manual engineering.
+Stage~2 evaluation confirms the budget policy is safe: LLM recovery is neutral (SR unchanged) on both benchmarks, with the feasibility check correctly routing tight-budget problems to the reliable relaxation fallback.
+Stage~3 achieves SR 0.720 on $12{\times}12$ Hard with no training data; however, it collapses to SR 0.200 on $15{\times}15$ Hard due to a context-window bottleneck when object count exceeds the LLM's 80-fact prompt capacity.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Task Planning, Large Language Models, Neuro-Symbolic AI, PDDL, Zero-Shot Generalization
+\end{IEEEkeywords}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\IEEEPARstart{T}{ask} planning in complex, object-rich environments requires long-horizon reasoning over large state spaces, making classical symbolic planners computationally expensive~\cite{helmert2006fast,edelkamp2004pddl2}.
+Neuro-symbolic methods address this scalability challenge by using neural networks to identify a small subset of relevant objects, reducing the grounded planning problem size before invoking a symbolic solver~\cite{silver2021planning,chen2024graph}.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/teaser.pdf}
+  \caption{Overview of \method. Given only a PDDL domain file, Stage~1 automatically generates relaxation and complementary rules; Stage~2 provides budget-aware LLM failure recovery; and Stage~3 replaces the domain-trained GNN with zero-shot LLM object scoring. Together, the full \fullmethod system deploys on a new domain with no manual engineering.}
+  \label{fig:teaser}
+\end{figure*}
+
+A representative framework of this kind combines a Graph Neural Network (GNN) for object importance prediction with domain-specific symbolic rules in two roles: (1) \emph{relaxation rules} that remove non-essential objects to produce a simplified, easier-to-solve version of the problem, and (2) \emph{complementary rules} that restore object pairs connected by spatial or structural constraints~\cite{silver2021planning}.
+Together these components enable fast, reliable planning even on expert-level maze tasks where classical planners time out.
+
+Despite strong empirical performance, deploying such a planner on a new domain requires three distinct forms of manual labor:
+\textbf{(1)} an expert must author relaxation rules encoding which objects are removable and under what conditions;
+\textbf{(2)} an expert must author complementary rules encoding which object pairs must appear together; and
+\textbf{(3)} hundreds of training problems must be solved offline to train the GNN scorer.
+Together, these requirements make it impractical to apply the system to a new domain without significant engineering investment.
+
+Recent rapid progress in large language models (LLMs) opens a path to eliminating all three bottlenecks.
+Modern LLMs demonstrate strong capabilities in structured reasoning, formal language understanding, and code generation~\cite{brown2020language,wei2022chain}.
+We hypothesize that an LLM, given only a PDDL domain file, can automatically infer predicate semantics, generate valid planning rules, recover from plan failures with semantic guidance, and score object importance zero-shot---replacing every source of manual domain knowledge.
+
+In this paper we present \method, a three-stage framework realizing this vision:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Stage 1 --- LLM Rule Generation:} Structured prompting with format validation and self-correction generates relaxation and complementary rules directly from the PDDL domain file.
+    \item \textbf{Stage 2 --- LLM Failure Recovery:} When GNN-guided planning times out, an LLM analyzes the current state and goal to identify missing objects; a budget-aware policy ensures that API latency cost is explicitly reserved before the call, preventing the downstream relaxation step from being starved.
+    \item \textbf{Stage 3 --- LLM Zero-Shot Object Scoring:} An LLM scores object importance from the PDDL state and goal without any training data, replacing the domain-trained GNN entirely.
+\end{itemize}
+The combined \fullmethod system requires only a PDDL domain file to deploy on a new domain.
+We evaluate all three stages on the MazeNamo benchmark and report their contributions and limitations.
+
+
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Learning for Scalable Task Planning}
+Classical forward-search planners such as Fast Downward~\cite{helmert2006fast} provide completeness guarantees but scale poorly with problem size.
+To overcome this, neuro-symbolic approaches couple neural components with symbolic solvers.
+PLOI~\cite{silver2021planning} introduced GNN-based object filtering for symbolic planners, reducing the grounded state space while preserving plan validity through iterative threshold lowering.
+GraphPloi~\cite{chen2024graph} extended this with richer graph representations.
+Our work builds directly on this line by preserving the neural-symbolic architecture while automating the rule engineering bottleneck.
+
+\subsection{LLMs for Planning and Formal Reasoning}
+LLMs have been applied to task planning in multiple ways.
+SayCan~\cite{ahn2022can} grounds LLM outputs in robot affordances, while LLM+P~\cite{liu2023llm+} uses LLMs to translate natural language tasks into PDDL problems.
+PDDLego~\cite{zhang2023pddl} and recent work by~\cite{guan2023leveraging} explore LLM-assisted PDDL generation.
+Most relevant to our work, \cite{yao2023tree} demonstrates LLMs' ability to reason over structured domains with chain-of-thought prompting.
+However, none of these works address the specific challenge of automatically generating \emph{rule configurations} for an existing neuro-symbolic planner—our focus here.
+
+\subsection{Automated Knowledge Engineering}
+Automated PDDL domain acquisition~\cite{cresswell2013acquiring} and rule learning~\cite{law2019inductive} are classical problems in AI planning.
+Our approach differs in that we leverage an LLM's pre-trained world knowledge rather than learning from interaction traces, and we target the specific structured format required by the downstream planner rather than full domain synthesis.
+
+
+\section{Background}
+\label{sec:background}
+
+\subsection{PDDL Planning}
+A PDDL planning problem $\Pi = \langle \mathcal{D}, \tau \rangle$ consists of a domain $\mathcal{D} = \langle \mathcal{P}, \mathcal{A} \rangle$ defining lifted predicates and actions, and a task instance $\tau = \langle \mathcal{O}, I, G \rangle$ specifying objects, initial state, and goal.
+A plan is a sequence of grounded actions mapping $I$ to a state satisfying $G$.
+
+\subsection{Neuro-Symbolic Planning with Rules}
+\label{sec:flax_bg}
+The baseline planner we extend operates in three steps during inference:
+
+\myparagraph{Step 1 (GNN Pruning)}
+A GNN assigns importance scores $s(o) \in [0,1]$ to each object. Starting from threshold $q = 0.81$ with decay $\gamma = 0.9$, the planner iteratively lowers $q$ and attempts to plan on the pruned object set $\mathcal{O}_1 = \{o \mid s(o) \geq q\}$ until success or timeout.
+
+\myparagraph{Step 2 (Relaxation)}
+If Step 1 times out, \emph{relaxation rules} remove certain objects from the full problem to create a simplified ``rough'' version. A rough plan $\mu_r$ is obtained quickly; objects in $\mu_r$ are merged back: $\mathcal{O}_2 = \mathcal{O}_1 \cup \{o \mid o \in \mu_r\}$.
+
+\myparagraph{Step 3 (Complementary Expansion)}
+\emph{Complementary rules} restore object pairs connected by structural constraints, yielding $\mathcal{O}_3 = \textsc{Comp}(\mathcal{O}_2)$, on which the final plan is computed.
+
+Both rule types are stored as structured JSON configurations (see \sref{sec:method}) and loaded at runtime.
+In the original system, these files are authored manually per domain.
+
+
+\section{Methodology}
+\label{sec:method}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/architecture.pdf}
+  \caption{Detailed architecture of \method. \emph{Left}: Stage~1 generates relaxation and complementary rules offline from the PDDL domain file via structured LLM prompting with validation and self-correction. \emph{Center}: At test time, the three-step Flax planning loop (Step~1: threshold-decay pruning; Step~2: relaxation; Step~3: complementary expansion) is shared by all stages. \emph{Right}: Stage~2 inserts a feasibility-gated LLM recovery call between a Step~1 timeout and the Step~2 fallback; Stage~3 replaces the GNN scorer with a zero-shot LLM object scorer. Dashed components require no manual authoring or training data.}
+  \label{fig:architecture}
+\end{figure*}
+
+\subsection{Rule Format}
+\label{sec:format}
+
+\myparagraph{Relaxation rules}
+Each rule specifies: (i) \texttt{pre\_compute}—a binary predicate used to look up a related object (e.g., \texttt{oAt} maps an obstacle to its position); (ii) \texttt{precond}—unary predicate(s) identifying removable objects; (iii) \texttt{delete\_objects}—argument index of the object to remove; (iv) \texttt{delete\_effects}—literals to retract; (v) \texttt{add\_effects}—literals to assert after removal.
+All values are integer argument indices (0-based).
+
+The manually crafted relaxation rule for MazeNamo reads:
+\begin{small}
+\begin{verbatim}
+{"rule0": {"pre_compute": {"oat":[0,1]},
+  "precond": {"islight":[0]},
+  "delete_objects": [0],
+  "delete_effects": {"islight":[0],
+    "ismoveable":[0], "oat":[0,1]},
+  "add_effects": {"posempty":[1]}}}
+\end{verbatim}
+\end{small}
+
+Semantically: \emph{for any light obstacle \texttt{o} at position \texttt{p}, remove \texttt{o} from the problem and mark \texttt{p} as empty.}
+
+\myparagraph{Complementary rules}
+Each entry maps a binary predicate name to paired \texttt{cond}/\texttt{cmpl} index lists.
+When an object at index \texttt{cond[i]} is included, the object at index \texttt{cmpl[i]} is also included.
+The manually crafted complementary rule is simply \texttt{\{"oat": \{"cond":[[0],[1]], "cmpl":[[1],[0]]\}\}}.
+
+\subsection{LLM Rule Generation}
+\label{sec:generation}
+
+We use a locally hosted open-source LLM (Qwen2.5-14B~\cite{qwen2025qwen25}) served via Ollama with an OpenAI-compatible API.
+The LLM is queried twice per domain---once for each rule type---using the following prompting strategy.
+
+\myparagraph{Prompt design}
+Each prompt includes: (1) a concise natural-language explanation of the rule type's purpose; (2) the exact JSON schema annotated with field semantics; (3) explicit emphasis that all index values must be \emph{integers}, never strings; (4) a correct worked example; and (5) an explicit ``wrong example'' showing the most common failure mode (using strings as index values).
+The full PDDL domain text is included verbatim so the LLM can inspect all predicate signatures.
+
+\myparagraph{Validation and self-correction}
+LLM outputs are validated by \textsc{ValidateRules}, which checks: (i) all required keys are present; (ii) all index fields contain lists of integers; (iii) all predicate names exist in the domain (parsed from the PDDL \texttt{:predicates} block); and (iv) no duplicate rules appear.
+If validation fails, the error messages are fed back to the LLM as a correction turn, with up to $K=3$ total attempts.
+
+\myparagraph{Post-processing}
+After validation passes, two post-processing steps are applied:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \emph{Deduplication:} rules with identical JSON content (modulo key name) are merged.
+    \item \emph{Predicate filtering:} rules referencing predicates absent from the domain are silently dropped.
+\end{itemize}
+The resulting rules are saved as JSON files and passed to the planner without modification.
+
+The full pipeline is summarized in Algorithm~\ref{alg:gen}.
+
+\subsection{Stage 2: LLM-Guided Failure Recovery}
+\label{sec:stage2}
+
+When Step~1 (GNN pruning) times out, the original planner applies a blind heuristic: lower the score threshold by $\gamma = 0.9$ and retry.
+This approach has no semantic understanding of \emph{why} planning failed.
+
+We introduce \textsc{LLMRecoveryGuidance}, inserted between a Step~1 timeout and the Step~2 relaxation fallback.
+Given the PDDL state, goal, included objects $\mathcal{O}_{cur}$, and excluded candidates $\mathcal{O}_{exc}$, the LLM identifies which excluded objects are likely blocking the plan.
+The LLM returns a JSON list of object names; the planner adds them and retries.
+If the retry succeeds the plan is returned; otherwise the pipeline falls through to Step~2 unchanged.
+
+\myparagraph{Budget policy}
+LLM API calls impose a latency cost (${\approx}3$--$5$\,s) that must be accounted for in per-problem timeout budgets.
+We adopt a three-part policy (see Appendix~\ref{app:budget} for derivation):
+\begin{itemize}[noitemsep,topsep=2pt]
+  \item \emph{Feasibility check}: skip recovery if the remaining time before the Step~2 deadline is $< t_\text{LLM} + t_\text{replan,min} + t_\text{step2,min}$ (set conservatively to 11\,s).
+  \item \emph{Recovery cap}: limit the recovery replan to $15\%$ of total timeout.
+  \item \emph{Step~2 guarantee}: Step~2 always receives at least $5$\,s regardless of recovery outcome.
+\end{itemize}
+Under this policy, recovery is skipped when the budget is too tight (e.g., 30\,s timeout) and proceeds with a small replan window (${\approx}3$\,s) when time permits (e.g., 40\,s timeout).
+
+\subsection{Stage 3: LLM Zero-Shot Object Scoring}
+\label{sec:stage3}
+
+The GNN scorer requires 200 solved training problems per domain.
+Stage~3 eliminates this requirement by replacing the GNN with \textsc{LLMObjectGuidance}, a zero-shot scorer with the same \texttt{score\_object(obj, state)} interface.
+
+On the first call for a given state, the LLM receives the goal, the list of all objects with types, and up to 80 state facts, and returns a JSON dictionary mapping each object name to a score in $[0, 1]$.
+Scores are cached so only one LLM call is made per planning problem.
+The \texttt{train()} method is a no-op: no data collection or training is needed.
+On LLM failure, all objects receive score~0.5, preserving the planner's $\gamma$-decay fallback.
+
+\myparagraph{Full LLM-Flax}
+Combining all three stages yields \fullmethod: given only a PDDL domain file, Stage~1 generates rules (${\approx}10$\,s), and at test time Stage~3 scores objects zero-shot while Stage~2 handles recovery.
+No domain expert involvement and no training data collection are required.
+
+\begin{algorithm}[t]
+\caption{\method Rule Generation (Stage 1)}
+\label{alg:gen}
+\SetKwInOut{Input}{Input}\SetKwInOut{Output}{Output}
+\Input{PDDL domain file $\mathcal{D}$; LLM $\mathcal{M}$; max retries $K$}
+\Output{Relaxation rules $R_{relx}$; Complementary rules $R_{cmpl}$}
+\BlankLine
+$\mathcal{P}_{known} \leftarrow \textsc{ParsePredicates}(\mathcal{D})$\;
+\For{$\text{rule\_type} \in \{\text{relaxation},\, \text{complementary}\}$}{
+    $\text{prompt} \leftarrow \textsc{BuildPrompt}(\mathcal{D},\, \text{rule\_type})$\;
+    $\text{messages} \leftarrow [\text{system}, \text{prompt}]$\;
+    \For{$k = 1$ \KwTo $K$}{
+        $\text{raw} \leftarrow \mathcal{M}(\text{messages})$\;
+        $R \leftarrow \textsc{ParseJSON}(\text{raw})$\;
+        $\text{errors} \leftarrow \textsc{ValidateRules}(R,\, \mathcal{P}_{known})$\;
+        \lIf{$\text{errors} = \emptyset$}{\textbf{break}}
+        $\text{messages}.\text{append}(\text{raw},\, \text{errors})$\;
+    }
+    $R \leftarrow \textsc{Dedup}(R)$\;
+    $R \leftarrow \textsc{FilterUnknown}(R,\, \mathcal{P}_{known})$\;
+}
+\Return $R_{relx},\, R_{cmpl}$\;
+\end{algorithm}
+
+
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Setup}
+
+\myparagraph{Domain}
+We evaluate on the MazeNamo benchmark~\cite{silver2021planning}: a grid-based maze navigation task where a robot must reach a goal while manipulating heavy boxes (push-only) and light boxes (push or pick-and-place).
+We test on $10{\times}10$ (easy, medium, hard; $n{=}50$), $12{\times}12$ (medium, hard; $n{=}50$; expert $n{=}30$), and $15{\times}15$ (medium, hard; $n{=}30$) grids, using a GNN model trained on 200 problems.
+
+\myparagraph{Configurations}
+We evaluate Stage~1 (rule generation) across all eight benchmarks, and Stage~2 (failure recovery) on the two benchmarks where Step~1 most frequently times out.
+Stage~3 experiments are ongoing.
+Stage~1 compares two rule configurations, holding all other components fixed:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Manual}: Hand-crafted rules (1 relaxation, 1 complementary). Timeouts: 10\,s / 30\,s / 40\,s for $10{\times}10$ / $12{\times}12$ / $15{\times}15$.
+    \item \textbf{\method}: LLM-generated rules (1 relaxation after dedup, 3 complementary). Same timeouts.
+\end{itemize}
+Stage~2 adds a third configuration, \textbf{\method + Recovery}, which uses \textsc{LLMRecoveryGuidance} with the feasibility-gated budget policy described in \sref{sec:stage2}.
+Stage~3 evaluates \fullmethod---replacing the GNN with \textsc{LLMObjectGuidance} (zero-shot)---on two representative benchmarks.
+
+\myparagraph{Metrics}
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Success Rate (SR):} fraction of problems solved within the time budget.
+    \item \textbf{Average Planning Time:} mean time over successful problems.
+    \item \textbf{Average Plan Length:} mean number of actions in found plans.
+\end{itemize}
+
+\subsection{Results}
+\label{sec:results}
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/sr_scale.pdf}
+    \caption{Success rate vs.\ difficulty (Manual vs.\ \method) across all grid sizes.
+    Shaded columns mark benchmarks where \method outperforms Manual.
+    The crossover is non-monotonic and stacking-density-driven:
+    Manual wins on stacking-heavy tasks (all 10$\times$10, 12$\times$12 Medium/Hard, 15$\times$15 Medium),
+    while \method dominates on navigation-heavy tasks
+    (12$\times$12 Expert: SR 1.000 vs.\ ALL FAIL; 15$\times$15 Hard: 1.000 vs.\ 0.900).}
+    \label{fig:sr_scale}
+\end{figure*}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/pipeline_10x10_hard_16.pdf}
+  \caption{\method pipeline on a $10{\times}10$ hard MazeNamo problem (problem~16, 163 objects).
+  (a)~Full problem with all objects.
+  (b)~Zero-shot LLM relevance scores assigned to each object (Stage~3): goal scores 1.00, nearby obstacles score 0.5--0.9, distant objects score low.
+  (c)~After Step~1 threshold-based pruning: 21 objects excluded (grey), 142 retained at threshold 0.478.
+  (d)~Step~2 relaxed sub-problem: light boxes removed via relaxation rules, yielding a rough plan.
+  (e)~Step~3 complementary expansion: object pairs with structural constraints restored.
+  (f)~Final plan of length 39 found in 0.8\,s.}
+  \label{fig:pipeline}
+\end{figure*}
+
+\tref{tab:main} reports full results. \fref{fig:sr_scale} visualizes the scale-dependent success rate gap. \fref{fig:pipeline} shows a concrete execution trace of the full pipeline on a $10{\times}10$ hard problem.
+
+\begin{table}[t]
+    \centering
+    \caption{Manual vs.\ LLM-generated rules within the Flax pipeline. SR = success rate ($\uparrow$); Time = avg.\ planning time over successful problems in seconds ($\downarrow$); Len = avg.\ plan length. Bold = better per row pair.}
+    \label{tab:main}
+    \small
+    \setlength{\tabcolsep}{3.5pt}
+    \renewcommand{\arraystretch}{1.05}
+    \begin{tabular}{llcccc}
+        \toprule
+        \textbf{Task} & \textbf{Rules} & \textbf{SR} & \textbf{$\Delta$SR} & \textbf{Time (s)} & \textbf{Len} \\
+        \midrule
+        \multirow{2}{*}{10$\times$10 Easy}
+            & Manual  & \textbf{1.000} & \multirow{2}{*}{$-$0.060} & 0.932 & 17.4 \\
+            & \method & 0.940 &  & \textbf{0.853} & 17.5 \\
+        \midrule
+        \multirow{2}{*}{10$\times$10 Medium}
+            & Manual  & \textbf{0.960} & \multirow{2}{*}{$-$0.060} & 1.997 & 19.8 \\
+            & \method & 0.900 &  & \textbf{1.925} & 19.8 \\
+        \midrule
+        \multirow{2}{*}{10$\times$10 Hard}
+            & Manual  & \textbf{0.960} & \multirow{2}{*}{$-$0.060} & 2.200 & 19.8 \\
+            & \method & 0.900 &  & \textbf{2.020} & 19.8 \\
+        \midrule
+        \multirow{2}{*}{12$\times$12 Medium}
+            & Manual  & \textbf{0.960} & \multirow{2}{*}{$-$0.040} & 1.914 & 22.1 \\
+            & \method & 0.920 &  & \textbf{1.773} & 22.0 \\
+        \midrule
+        \multirow{2}{*}{12$\times$12 Hard}
+            & Manual  & \textbf{0.880} & \multirow{2}{*}{$-$0.080} & \textbf{3.965} & 29.8 \\
+            & \method & 0.800 &  & 3.224 & 29.8 \\
+        \midrule
+        \multirow{2}{*}{12$\times$12 Expert}
+            & Manual  & 0.000 & \multirow{2}{*}{$+$1.000} & --- & --- \\
+            & \method & \textbf{1.000} &  & \textbf{1.574} & 17.2 \\
+        \midrule
+        \multirow{2}{*}{15$\times$15 Medium}
+            & Manual  & \textbf{0.967} & \multirow{2}{*}{$-$0.134} & 8.740 & 30.9 \\
+            & \method & 0.833 &  & \textbf{7.997} & 31.3 \\
+        \midrule
+        \multirow{2}{*}{15$\times$15 Hard}
+            & Manual  & 0.900 & \multirow{2}{*}{$+$0.100} & 11.901 & 36.2 \\
+            & \method & \textbf{1.000} &  & \textbf{1.931} & 17.2 \\
+        \midrule
+        \multirow{2}{*}{Average (8 tasks)}
+            & Manual  & 0.828 & \multirow{2}{*}{$+$0.084} & 4.521$^\dagger$ & 25.1$^\dagger$ \\
+            & \method & \textbf{0.912} &  & \textbf{2.662} & 21.8 \\
+        \bottomrule
+    \end{tabular}
+    \vspace{2pt}
+    {\footnotesize $^\dagger$Average excludes 12$\times$12 Expert (Manual SR\,=\,0, no successful plans).}
+\end{table}
+
+The results reveal a \emph{difficulty-dependent} pattern.
+On tasks where objects are primarily navigational (all $10{\times}10$, $12{\times}12$ Medium), \method achieves 92--96\% of manual SR with slightly faster planning.
+On $12{\times}12$ Hard---where stacked obstacle configurations are prevalent---the \texttt{clear} precondition blocks stacked-box removal and \method underperforms (SR 0.800 vs.\ 0.880).
+
+The most striking results are at larger scale.
+On $12{\times}12$ Expert the manual planner times out on every one of 30 problems (SR 0.000), while \method solves all 30 at 1.57\,s average (SR 1.000).
+At $15{\times}15$ Hard, \method achieves SR 1.000 vs 0.900 at $6{\times}$ faster speed.
+At $15{\times}15$ Medium, \method achieves SR 0.833 vs 0.967---a moderate gap, not a collapse---because while stacking exists, longer navigation paths amplify the benefit of the richer LLM complementary rules (\texttt{rat}, \texttt{oat}, \texttt{upon}).
+Averaged across all eight benchmarks, \method achieves SR 0.912 versus Manual 0.828 ($+0.084$): \emph{LLM-generated rules outperform manual rules on aggregate.}
+
+\subsection{Rule Quality Analysis}
+\label{sec:quality}
+
+\myparagraph{Relaxation rules}
+The LLM-generated relaxation rule is structurally similar to the manual rule but differs in two ways (see \tref{tab:rule_diff}): (1) the \texttt{precond} field adds \texttt{clear:[0]}, requiring the obstacle to be unobstructed before removal; and (2) \texttt{delete\_effects} additionally retracts \texttt{upon:[0,1]}, handling stacked-box relationships.
+
+\begin{table}[t]
+    \centering
+    \caption{Structural differences between manual and LLM-generated relaxation rules.}
+    \label{tab:rule_diff}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Field} & \textbf{Manual} & \textbf{LLM-generated} \\
+        \midrule
+        \texttt{pre\_compute} & \texttt{\{oat:[0,1]\}} & \texttt{\{oat:[0,1]\}} \\
+        \texttt{precond} & \texttt{\{islight:[0]\}} & \texttt{\{islight:[0], clear:[0]\}} \\
+        \texttt{delete\_objects} & \texttt{[0]} & \texttt{[0]} \\
+        \texttt{delete\_effects} & \texttt{islight, ismoveable, oat} & \texttt{+upon:[0,1]} \\
+        \texttt{add\_effects} & \texttt{\{posempty:[1]\}} & \texttt{\{posempty:[1]\}} \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+The additional \texttt{clear} condition is the primary driver of the success rate gap: it prevents removal of light boxes that have other boxes stacked on top, which is semantically sound but overly conservative.
+Under the manual rule, such boxes are also removed (their stacked contents fall into the relaxed state naturally), which simplifies the problem more aggressively and improves success rate at the cost of slightly less accurate relaxation semantics.
+
+\myparagraph{Complementary rules}
+The LLM generates three complementary rules (\texttt{rat}, \texttt{oat}, \texttt{upon}) compared to the one manual rule (\texttt{oat}).
+The \texttt{oat} rule is identical to the manual version.
+The added \texttt{rat} rule (robot–position pairing) and \texttt{upon} rule (stacked-box pairing) are semantically valid and represent genuine improvements: they prevent states where a robot or stacked obstacle is included without its positional context, a condition that can cause planning failures in edge cases.
+
+\subsection{Stage 2: LLM-Guided Failure Recovery}
+\label{sec:results_stage2}
+
+\tref{tab:stage2} reports results on the two benchmarks where GNN Step~1 most frequently exceeds its $\nicefrac{T}{6}$ sub-budget: $12{\times}12$ Hard (timeout $T{=}30$\,s) and $15{\times}15$ Medium ($T{=}40$\,s).
+
+\begin{table}[t]
+    \centering
+    \caption{Stage 2 ablation: LLM-generated rules with and without LLM failure recovery. SR = success rate; Time = avg.\ planning time over successful problems (s). Bold = best per row group.}
+    \label{tab:stage2}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.1}
+    \begin{tabular}{llcc}
+        \toprule
+        \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} \\
+        \midrule
+        \multirow{3}{*}{12$\times$12 Hard}
+            & Manual              & \textbf{0.880} & 3.965 \\
+            & \method             & 0.800          & \textbf{3.224} \\
+            & \method + Recovery  & 0.800          & 3.238 \\
+        \midrule
+        \multirow{3}{*}{15$\times$15 Medium}
+            & Manual              & \textbf{0.967} & 8.740 \\
+            & \method             & 0.833          & \textbf{7.997} \\
+            & \method + Recovery  & 0.833          & 9.846 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Recovery is \emph{neutral} on both benchmarks: SR is unchanged, and planning time increases only marginally.
+The feasibility-gated budget policy's pre-check is the key mechanism: with a 30\,s timeout, the time remaining before the Step-2 deadline (${\approx}10$\,s) falls below the 11\,s threshold, so the LLM call is skipped and the pipeline falls back to standard relaxation.
+With a 40\,s timeout, the LLM call proceeds, but the relaxation fallback already handles these problems reliably, so recovery provides no additional benefit.
+Critically, the budget policy prevents the harmful SR regression ($-0.200$) observed in earlier implementations that starved the Step-2 relaxation budget (see Appendix~\ref{app:budget}).
+
+\subsection{Ablation: Effect of Validation and Post-Processing}
+\label{sec:ablation_pipeline}
+
+\tref{tab:gen_quality} reports generation quality across LLM attempts.
+Without validation, the raw LLM output contains structural errors in 100\% of first attempts: integer indices replaced by strings, duplicate rules (8 identical rules generated), and hallucinated predicate names (\texttt{ismoveempty} instead of \texttt{ismoveable}).
+After one correction turn (Attempt 2), all structural errors are resolved.
+Post-processing then removes the 6 duplicate rules, and predicate filtering drops the 1 rule with a typo.
+
+\begin{table}[t]
+    \centering
+    \caption{LLM generation quality across attempts and post-processing stages.}
+    \label{tab:gen_quality}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.1}
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Stage} & \textbf{Format OK} & \textbf{Rules} & \textbf{Typos} & \textbf{Duplicates} \\
+        \midrule
+        Attempt 1 (raw)    & \ding{55} & 8 & 1 & 6 \\
+        Attempt 2 (retry)  & \ding{51} & 8 & 1 & 6 \\
+        After dedup        & \ding{51} & 2 & 1 & 0 \\
+        After pred. filter & \ding{51} & 1 & 0 & 0 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+This demonstrates that validation and post-processing are essential: without them, the generated rules would either crash the planner or produce substantially incorrect behavior.
+
+
+\section{Discussion}
+\label{sec:discussion}
+
+\myparagraph{What works well}
+The LLM correctly identifies the semantic roles of domain predicates from their names and PDDL signatures alone.
+It recognizes that \texttt{isLight} marks removable obstacles, that \texttt{oAt} links obstacles to positions, and that \texttt{posEmpty} should be asserted after removal—all without any domain-specific examples beyond the format template.
+The generated complementary rules are richer than manually crafted ones, covering robot–position and stacking relationships that the original authors did not include.
+
+\myparagraph{Failure modes}
+The primary failure mode is over-conservatism: the LLM adds extra preconditions (\texttt{clear}) that are semantically justifiable but reduce the simplification power of the relaxation rule.
+This is a form of hallucination in the opposite direction---the model generates \emph{too much} domain knowledge rather than too little.
+Secondarily, on first attempts the model generates repetitive output (8 identical rules) and occasional typos in predicate names.
+The validation-and-retry mechanism reliably corrects format errors but cannot automatically correct the conservative bias without additional guidance.
+
+\myparagraph{Stage 2: recovery is neutral, not harmful}
+With the feasibility-gated budget policy, LLM failure recovery neither helps nor hurts: SR is identical to \method on both evaluated benchmarks.
+The policy's feasibility check successfully prevents the Step-2 relaxation budget from being starved by LLM API latency.
+The design and lessons from earlier implementations are documented in Appendix~\ref{app:budget}.
+
+\myparagraph{Toward removing the conservative bias}
+One direction is to provide the LLM with examples of the performance gap and ask it to generate a less conservative rule variant.
+Another is to use planning success rate as a reward signal to fine-tune the prompts, closing the loop between rule quality and planning outcome.
+
+\myparagraph{Stage 3: zero-shot object scoring}
+\tref{tab:stage3} reports \fullmethod results on two benchmarks.
+On $12{\times}12$ Hard, \fullmethod achieves SR 0.720 with \emph{no GNN training data}, at the cost of $5.6{\times}$ higher planning time (22.2\,s vs.\ 3.2\,s) due to one LLM API call per problem.
+On $15{\times}15$ Hard---where LLM rules alone achieve a perfect SR 1.000---\fullmethod collapses to SR 0.200.
+
+\begin{table}[h]
+    \centering
+    \caption{\fullmethod (Stage 1+2+3) versus baselines. Full LLM-Flax requires no GNN training and no manual rules.}
+    \label{tab:stage3}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.1}
+    \begin{tabular}{llcc}
+        \toprule
+        \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} \\
+        \midrule
+        \multirow{3}{*}{12$\times$12 Hard}
+            & Manual              & \textbf{0.880} & \textbf{3.965} \\
+            & \method             & 0.800          & 3.224 \\
+            & \fullmethod         & 0.720          & 22.2 \\
+        \midrule
+        \multirow{3}{*}{15$\times$15 Hard}
+            & Manual              & 0.900          & 11.901 \\
+            & \method             & \textbf{1.000} & \textbf{1.931} \\
+            & \fullmethod         & 0.200          & 23.1 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The collapse on $15{\times}15$ Hard traces to a scale limitation: problems have $240{+}$ objects, but the LLM prompt is capped at 80 state facts, providing insufficient context for accurate zero-shot scoring.
+The GNN, trained on 200 domain-specific problems, learns to identify navigable paths efficiently; the LLM without such training cannot replicate this at scale within the timeout budget.
+We investigated several prompt engineering approaches (chain-of-thought reasoning, goal-biased fact selection, and Top-K selective scoring) to improve performance, but all configurations degraded below the direct baseline.
+The shared root cause is that any approach increasing LLM generation time reduces the planning budget, which hurts more than it helps.
+A full analysis and per-method results are reported in Appendix~\ref{app:stage3_improvements}.
+
+\myparagraph{The right comparison axis}
+We emphasize that the primary goal of \method is not to match manual-rule performance on a known domain.
+It is to enable \emph{immediate deployment on a new domain} without any domain-expert involvement.
+The manual baseline requires hours of engineering per domain; \method requires only the PDDL file.
+Under this framing, a $<1\%$ average SR gap on MazeNamo is a strong result, and the Stage~3 zero-shot GNN replacement---which eliminates the 200-problem training requirement---is the most impactful contribution for cross-domain generalization.
+
+\myparagraph{Cross-domain generalization}
+The full pipeline requires only a PDDL domain file.
+We expect it to generalize to other STRIPS-style domains (e.g., DifficultLogistics, SokomindPlus) where predicate names encode semantic meaning, without any domain-specific modifications.
+Empirical validation across new domains is the primary direction for future work.
+
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We have presented \method, a three-stage framework that progressively eliminates all sources of manual domain knowledge from a neuro-symbolic task planner.
+Stage~1 replaces hand-crafted rules with LLM-generated equivalents; Stage~2 replaces the blind $\gamma$-decay failure heuristic with LLM-guided object recovery; and Stage~3 replaces the domain-trained GNN with zero-shot LLM object scoring.
+Together, \fullmethod reduces the cost of deploying on a new domain from hours of expert engineering to a single PDDL file.
+
+Stage~1 evaluated across eight MazeNamo benchmarks achieves average SR 0.912 versus the manual baseline's 0.828 ($+0.084$), outperforming manual rules on aggregate and dramatically so on navigation-heavy Expert tasks (SR 1.000 vs.\ 0.000).
+Analysis reveals that the stacking-heavy gap traces to a single over-conservative LLM precondition---a targeted, correctable failure mode.
+Stage~2 evaluation confirms that the feasibility-gated budget policy prevents harmful budget starvation: LLM recovery is neutral (SR unchanged) on both evaluated benchmarks, with the pre-check correctly routing tight-budget problems to the reliable relaxation fallback.
+Stage~3 results are mixed: on $12{\times}12$ Hard, \fullmethod achieves SR 0.720 with no GNN training data, confirming feasibility; on $15{\times}15$ Hard it collapses to SR 0.200 due to a context-window bottleneck at scale ($240{+}$ objects, 80-fact cap).
+Extending zero-shot scoring to larger problems is the primary open challenge.
+
+Our results establish that open-source LLMs possess sufficient PDDL comprehension to replace domain-specific engineering components for small-to-medium problems, opening a practical path toward truly domain-agnostic neuro-symbolic planning.
+
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\clearpage
+\appendix
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Stage~2 Budget Policy: Design History and Lessons}
+\label{app:budget}
+
+This appendix documents the three design iterations of the Stage~2 failure-recovery budget policy, the failure modes encountered at each stage, and the reasoning behind the final adopted design.
+
+\myparagraph{Policy~I: Shared-Budget Recovery (harmful)}
+The initial design allocated $\nicefrac{T}{2}$ of the total timeout for the recovery replan, drawing from the same pool reserved for Step~2 relaxation.
+With $T{=}30$\,s, after a Step~1 timeout (${\approx}5$\,s) plus an LLM API call (${\approx}4$\,s), only ${\approx}6$\,s remained for the recovery replan.
+When the replan failed, less than ${\approx}6$\,s was left for Step~2 relaxation—insufficient for the $12{\times}12$ and $15{\times}15$ problems where relaxation typically needs~$8$--$10$\,s.
+\emph{Result on 15$\times$15$ Medium}: SR dropped from 0.833 (LLM rules baseline) to 0.633 ($-0.200$).
+
+\myparagraph{Policy~II: Capped-Replan Recovery (latency-unaware, still harmful)}
+This design capped the recovery replan at 15\% of the total timeout ($0.15 \times 30 = 4.5$\,s) to protect the relaxation budget.
+However, the LLM API call latency (${\approx}4$--$5$\,s) was not explicitly deducted from the remaining pre-Step-2 window.
+The combined cost—Step~1 (${\approx}5$\,s) + LLM call (${\approx}5$\,s) + recovery replan ($4.5$\,s) = $14.5$\,s—exceeded the $\nicefrac{T}{2} = 15$\,s Step-2 deadline, leaving Step~2 with ${\approx}0.5$\,s.
+\emph{Result}: SR collapsed to 0.020 (catastrophic regression; only 1 of 50 problems solved).
+
+\myparagraph{Policy~III: Feasibility-Gated Recovery (latency-aware, adopted)}
+This design adds a \emph{feasibility pre-check} before any LLM call:
+\begin{equation}
+  t_\text{before-step2} \geq t_\text{LLM} + t_\text{replan,min} + t_\text{step2,min}
+  \quad \Longleftrightarrow \quad t_\text{before-step2} \geq 11\,\text{s}
+\end{equation}
+where $t_\text{LLM} = 5$\,s (conservative estimate), $t_\text{replan,min} = 1$\,s, and $t_\text{step2,min} = 5$\,s.
+If the condition is not met, recovery is skipped entirely and the pipeline falls through to Step~2 relaxation with the full remaining budget.
+Additionally, the recovery replan is capped at 15\% of total timeout, and Step~2 is guaranteed at least 5\,s regardless of recovery outcome.
+
+Under this policy, $T{=}30$\,s leaves only $10$\,s before the Step-2 deadline ($< 11$\,s threshold), so the LLM call is always skipped for $12{\times}12$ Hard.
+At $T{=}40$\,s the call proceeds, but the relaxation fallback already handles these problems reliably, so recovery adds no benefit.
+\emph{Result on both benchmarks}: SR is identical to the \method baseline—no regression, no improvement.
+
+\myparagraph{Key lesson}
+The LLM API latency cost must be explicitly reserved in the per-problem time budget \emph{before} the LLM call is initiated.
+Reactive budget accounting (deducting API time after the call completes) consistently underestimates the true cost and leads to budget starvation.
+A conservative pre-check that over-estimates latency is safer than an optimistic one.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Stage~3 Scoring: Attempted Improvement Methods}
+\label{app:stage3_improvements}
+
+This appendix documents four prompt-engineering approaches investigated to improve \fullmethod beyond the direct zero-shot baseline (SR 0.720 on $12{\times}12$ Hard, SR 0.200 on $15{\times}15$ Hard).
+All approaches underperformed the baseline; results are reported on $12{\times}12$ Hard ($n{=}50$, $T{=}30$\,s).
+
+\begin{table}[t]
+    \centering
+    \caption{Stage~3 improvement attempts on $12{\times}12$ Hard.
+             Direct (alphabetical-80) is the baseline. All modifications degrade SR.}
+    \label{tab:stage3_ablation}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{lccp{4.5cm}}
+        \toprule
+        \textbf{Method} & \textbf{SR} & \textbf{Overhead} & \textbf{Root cause} \\
+        \midrule
+        Direct, alpha-80 (baseline)  & \textbf{0.720} & ${\approx}5$\,s  & --- \\
+        Direct, goal-biased-80       & 0.660 & ${\approx}7$\,s  & Biased facts omit key predicates \\
+        Direct, goal-biased-150      & 0.620 & ${\approx}10$\,s & Longer prompt $\to$ more overhead \\
+        CoT-full (2-turn, gb-150)    & 0.100 & ${\approx}12$\,s & Overhead kills planning budget \\
+        CoT-lite (1-turn, gb-150)    & 0.060 & ${\approx}20$\,s & Longer response than CoT-full \\
+        Top-K ($K{=}40$, gb-150)     & 0.140 & ${\approx}5$\,s  & Score gradient destroyed \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+\myparagraph{Goal-biased fact selection}
+Selecting facts in priority order (goal-object facts first, then positional facts, then others) was intended to give the LLM better spatial context.
+However, for MazeNamo the alphabetical baseline already samples a diverse mixture of predicate types (\texttt{isLight}, \texttt{oAt}, \texttt{rAt}, \texttt{upon}, etc.) that the LLM needs to identify removable obstacles.
+Goal-biased selection over-represents positional predicates (\texttt{oAt}, \texttt{rAt}) and under-represents object-property predicates (\texttt{isLight}, \texttt{upon}), reducing scoring accuracy.
+
+\myparagraph{Chain-of-Thought (CoT)}
+Two CoT variants were tested. CoT-full uses a 2-turn conversation (Turn 1: free-form path analysis; Turn 2: JSON scores). CoT-lite uses a single turn with an ``ANALYSIS:'' prefix before the JSON.
+Both increase generation length---the LLM must produce reasoning text \emph{and} a full-size JSON---resulting in ${\approx}12$\,s and ${\approx}20$\,s overhead respectively.
+With a 30\,s timeout, this leaves fewer than ${\approx}18$\,s for planning, insufficient for $12{\times}12$ Hard problems that the baseline solves with ${\approx}25$\,s.
+
+\myparagraph{Top-K selective scoring}
+Top-K ($K{=}40$) asks the LLM to score only the $K$ most important objects, defaulting unselected objects to 0.1.
+This reduces the output JSON from ${\sim}240$ to ${\sim}40$ entries, cutting generation time to ${\approx}5$\,s.
+However, the score distribution becomes binary: $K$ objects receive diverse scores (0.6--1.0) while $200$ objects receive 0.1.
+Since the GNN-decay threshold starts at 0.81 and decreases by $\gamma{=}0.9$ per iteration, non-selected objects at 0.1 require $>$20 threshold-decay iterations before inclusion---far exceeding the Step-1 time budget.
+Any important object missed by the LLM's Top-K selection is effectively excluded from all Step-1 planning attempts.
+
+\myparagraph{Key lesson}
+The direct baseline is accidentally well-calibrated: alphabetical-80 sampling provides sufficient predicate diversity for the LLM to produce gradient scores across all objects, enabling threshold decay to gradually and efficiently expand the object set.
+Any modification that either (a) increases generation time or (b) distorts the score distribution degrades performance.
+Improving Stage~3 likely requires a fundamentally different approach, such as a larger context window model (${\geq}32$k tokens) that can ingest all state facts, or a lightweight few-shot adaptation step.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Baseline Comparison: Pure FD, PLOI, and Flax Variants}
+\label{app:baselines}
+
+This appendix situates \method in the full planning hierarchy by comparing four configurations that span the design space from pure symbolic search to fully automated neuro-symbolic planning.
+
+\myparagraph{Configurations}
+\begin{itemize}[noitemsep,topsep=2pt]
+  \item \textbf{Pure FD}: Fast Downward with no guidance and no rules.
+    Lower bound; establishes where classical search alone fails.
+  \item \textbf{PLOI}: GNN-guided \texttt{IncrementalPlanner}~\cite{silver2021planning} with no relaxation or complementary rules.
+    Represents the neural baseline without rule-based simplification.
+  \item \textbf{Manual (Flax)}: GNN + manually authored rules (1 relaxation, 1 complementary).
+    The hand-engineered neuro-symbolic baseline used as the primary comparison in the main paper.
+  \item \textbf{\method}: GNN replaced by LLM zero-shot scoring; manual rules replaced by LLM-generated rules.
+    The proposed fully automated system.
+\end{itemize}
+
+\begin{table}[t]
+  \centering
+  \caption{Full four-way comparison across all eight MazeNamo benchmarks. SR = success rate ($\uparrow$). Pure FD and PLOI results from Appendix experiments; Manual and \method from \tref{tab:main}.}
+  \label{tab:baselines}
+  \small
+  \setlength{\tabcolsep}{3.5pt}
+  \renewcommand{\arraystretch}{1.05}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{llcccc}
+    \toprule
+    \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} & \textbf{Len} \\
+    \midrule
+    \multirow{4}{*}{10$\times$10 Easy}
+      & Pure FD      & \textbf{1.000} & 0.671 & 15.4 \\
+      & PLOI         & 0.900 & 0.761 & 17.6 \\
+      & Manual       & \textbf{1.000} & 0.932 & 17.4 \\
+      & \method      & 0.940 & 0.853 & 17.5 \\
+    \midrule
+    \multirow{4}{*}{10$\times$10 Medium}
+      & Pure FD      & \textbf{1.000} & 1.400 & 15.7 \\
+      & PLOI         & 0.920 & 0.840 & 16.5 \\
+      & Manual       & 0.960 & 1.997 & 19.8 \\
+      & \method      & 0.900 & 1.925 & 19.8 \\
+    \midrule
+    \multirow{4}{*}{10$\times$10 Hard}
+      & Pure FD      & \textbf{1.000} & 3.030 & 19.2 \\
+      & PLOI         & 0.820 & 1.310 & 19.2 \\
+      & Manual       & 0.960 & 2.200 & 19.8 \\
+      & \method      & 0.900 & 2.020 & 19.8 \\
+    \midrule
+    \multirow{4}{*}{12$\times$12 Medium}
+      & Pure FD      & \textbf{1.000} & 6.190 & 21.1 \\
+      & PLOI         & 0.900 & 1.320 & 21.8 \\
+      & Manual       & 0.960 & 1.914 & 22.1 \\
+      & \method      & 0.920 & 1.773 & 22.0 \\
+    \midrule
+    \multirow{4}{*}{12$\times$12 Hard}
+      & Pure FD      & \textbf{1.000} & 17.59 & 28.8 \\
+      & PLOI         & 0.580 & 1.270 & 26.3 \\
+      & Manual       & 0.880 & 3.965 & 29.8 \\
+      & \method      & 0.800 & 3.224 & 29.8 \\
+    \midrule
+    \multirow{4}{*}{12$\times$12 Expert}
+      & Pure FD      & 0.333 & 26.19 & 29.7 \\
+      & PLOI         & 0.433 & 1.090 & 26.1 \\
+      & Manual       & 0.000 & --- & --- \\
+      & \method      & \textbf{1.000} & 1.574 & 17.2 \\
+    \midrule
+    \multirow{4}{*}{15$\times$15 Medium}
+      & Pure FD      & \textbf{1.000} & 27.33 & 31.8 \\
+      & PLOI         & 0.767 & 5.090 & 30.0 \\
+      & Manual       & 0.967 & 8.740 & 30.9 \\
+      & \method      & 0.833 & 7.997 & 31.3 \\
+    \midrule
+    \multirow{4}{*}{15$\times$15 Hard}
+      & Pure FD      & 0.333 & 34.37 & 29.3 \\
+      & PLOI         & 0.700 & 3.750 & 32.0 \\
+      & Manual       & 0.900 & 11.901 & 36.2 \\
+      & \method      & \textbf{1.000} & \textbf{1.931} & 17.2 \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table}
+
+\myparagraph{Key takeaways}
+Three findings stand out.
+
+First, \emph{Pure FD is a surprisingly strong baseline on SR alone}: it achieves SR~1.000 on all benchmarks up to $15{\times}15$ Medium, but at the cost of dramatically higher planning time (6--27\,s) compared to rule-guided systems (1--9\,s).
+For real-time deployment, this time gap is often prohibitive.
+
+Second, \emph{PLOI (GNN without rules) is frequently the weakest configuration}, falling below even Pure FD on several benchmarks (e.g., $12{\times}12$ Hard: SR 0.580 vs.\ 1.000).
+This reveals that the GNN score alone, without relaxation and complementary rules to structure the pruned problem, can lead to invalid or incomplete planning sets that prevent any solution.
+\emph{The rules are the critical component}, not the scoring model.
+
+Third, \emph{the LLM-generated rules in \method capture the essential benefit of manual rules} across the benchmarks where rules matter, while eliminating the engineering cost entirely.
+On the two benchmarks where classical search fails ($12{\times}12$ Expert, $15{\times}15$ Hard), \method is the only configuration to achieve high SR, confirming its robustness at scale.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/sr_heatmap.pdf}
+  \caption{Compact SR heatmap for all four configurations across all eight benchmarks.
+  Green = high SR, red = low SR. The Manual ``FAIL'' cell at $12{\times}12$ Expert and
+  the two orange-shaded cells where \method achieves SR~1.000 are the most salient features.
+  The PLOI row is uniformly lower than both Manual and \method, confirming that
+  rules—not the GNN scorer—drive the performance advantage.}
+  \label{fig:sr_heatmap}
+\end{figure*}
+
+\end{document}

@@ -1,0 +1,22 @@
+{
+  "size": 10,
+  "difficulty": "medium",
+  "num_problems": 30,
+  "num_seeds": 1,
+  "results": [
+    {
+      "avg_time": 1.3155701955159504,
+      "success_rate": 1.0,
+      "avg_plan_length": 17.2,
+      "wall_time_s": 43.8,
+      "config": "llm_rules"
+    },
+    {
+      "avg_time": 1.4719682421003069,
+      "success_rate": 0.9333333333333333,
+      "avg_plan_length": 16.678571428571427,
+      "wall_time_s": 66.4,
+      "config": "llm_rules+recovery"
+    }
+  ]
+}
