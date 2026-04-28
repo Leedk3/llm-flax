@@ -250,3 +250,23 @@ paper/
   main.tex                    # Paper draft
   refs.bib                    # References
 ```
+
+---
+
+## Acknowledgments
+
+This project builds directly on **Flax** — the neuro-symbolic task planner developed by Du et al. (2026).
+The core three-step planning loop (GNN pruning → relaxation → complementary expansion), the MazeNamo benchmark, and the GNN training infrastructure are all from the original Flax system.
+Our contribution is three stages of LLM-based automation layered on top of the unmodified Flax planner.
+
+```bibtex
+@article{du2026fast,
+  title={Fast Task Planning with Neuro-Symbolic Relaxation},
+  author={Du, Qiwei and Li, Bowen and Du, Yi and Su, Shaoshu and Fu, Taimeng
+          and Zhan, Zitong and Zhao, Zhipeng and Wang, Chen},
+  journal={IEEE Robotics and Automation Letters},
+  year={2026},
+  publisher={IEEE},
+  note={arXiv:2507.15975}
+}
+```
