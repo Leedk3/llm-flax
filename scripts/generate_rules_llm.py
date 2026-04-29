@@ -15,7 +15,10 @@ import os
 import re
 import json
 import argparse
+import requests
 from openai import OpenAI
+
+OLLAMA_BASE = "http://localhost:11434"
 
 MAX_RETRIES = 3
 
@@ -307,6 +310,39 @@ def validate_complementary_rules(rules: dict,
 
 
 # ---------------------------------------------------------------------------
+# Normalization
+# ---------------------------------------------------------------------------
+
+def _lower_keys(d):
+    """Recursively lowercase all dict keys (predicate names)."""
+    if isinstance(d, dict):
+        return {k.lower(): _lower_keys(v) for k, v in d.items()}
+    if isinstance(d, list):
+        return [_lower_keys(i) for i in d]
+    return d
+
+
+def normalize_relaxation_rules(rules: dict) -> dict:
+    """Lowercase all predicate-name keys in a relaxation rules dict."""
+    normalized = {}
+    for rule_name, rule in rules.items():
+        new_rule = {}
+        for field in ("pre_compute", "precond", "delete_effects", "add_effects"):
+            if field in rule:
+                new_rule[field] = _lower_keys(rule[field])
+        for field in ("delete_objects",):
+            if field in rule:
+                new_rule[field] = rule[field]
+        normalized[rule_name] = new_rule
+    return normalized
+
+
+def normalize_complementary_rules(rules: dict) -> dict:
+    """Lowercase and strip underscores from top-level predicate-name keys."""
+    return {k.lower().replace("_", ""): v for k, v in rules.items()}
+
+
+# ---------------------------------------------------------------------------
 # Post-processing
 # ---------------------------------------------------------------------------
 
@@ -356,21 +392,39 @@ def filter_unknown_predicates(rules: dict, known_predicates: dict[str, int],
 # ---------------------------------------------------------------------------
 
 def call_llm(client: OpenAI, model: str, messages: list, debug: bool = False) -> str:
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=0.0,
-    )
-    text = response.choices[0].message.content.strip()
+    """Call Ollama via its native /api/chat endpoint to ensure num_ctx is respected."""
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "format": "json",                          # force JSON output mode
+        "options": {"temperature": 0.0, "num_ctx": 16384},
+    }
+    resp = requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=180)
+    resp.raise_for_status()
+    text = resp.json()["message"]["content"].strip()
     if debug:
         print("\n[LLM raw response]\n", text, "\n")
     return text
 
 
 def parse_json_response(response: str) -> dict:
-    cleaned = re.sub(r"^```[a-z]*\n?", "", response.strip())
-    cleaned = re.sub(r"\n?```$", "", cleaned.strip())
-    return json.loads(cleaned)
+    """Parse JSON from LLM response, handling markdown fences and preamble text."""
+    text = response.strip()
+    # Strip markdown fences
+    text = re.sub(r"^```[a-z]*\n?", "", text)
+    text = re.sub(r"\n?```$", "", text.strip())
+    text = text.strip()
+    # Try direct parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # Try to extract the first top-level JSON object from surrounding text
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        return json.loads(match.group(0))
+    raise json.JSONDecodeError("No JSON object found", text, 0)
 
 
 def generate_with_retry(client: OpenAI, model: str, prompt: str,
@@ -389,6 +443,14 @@ def generate_with_retry(client: OpenAI, model: str, prompt: str,
 
         try:
             rules = parse_json_response(raw)
+            # Normalize predicate names to lowercase before validation
+            if rule_type == "relaxation rules":
+                rules = normalize_relaxation_rules(rules)
+            elif rule_type == "complementary rules":
+                rules = normalize_complementary_rules(rules)
+                # Pre-filter unknown predicates so validation only checks structure
+                if known_predicates:
+                    rules = filter_unknown_predicates(rules, known_predicates, "complementary")
         except json.JSONDecodeError as e:
             error_msg = f"Invalid JSON: {e}"
             print(f"  Parse error: {error_msg}")
@@ -501,8 +563,8 @@ def compare_with_manual(generated: dict, manual_path: str, rule_type: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--domain", required=True, help="Path to PDDL domain file")
-    parser.add_argument("--model", default="qwen2.5:14b",
-                        help="Ollama model name (default: qwen2.5:14b)")
+    parser.add_argument("--model", default="gemma3:12b",
+                        help="Ollama model name (default: gemma3:12b)")
     parser.add_argument("--debug", action="store_true", help="Print raw LLM responses")
     args = parser.parse_args()
 

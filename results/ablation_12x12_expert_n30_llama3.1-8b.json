@@ -1,0 +1,15 @@
+{
+  "size": 12,
+  "difficulty": "expert",
+  "num_problems": 30,
+  "num_seeds": 1,
+  "results": [
+    {
+      "avg_time": 4.362,
+      "success_rate": 0.1667,
+      "avg_plan_length": 27.0,
+      "wall_time_s": 460.0,
+      "config": "llm_rules_llama3.1-8b"
+    }
+  ]
+}

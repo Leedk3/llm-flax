@@ -1,9 +1,7 @@
 """
 Generate SR vs. difficulty figure for the LLM-Flax paper.
 
-Shows the non-monotonic, stacking-density-dependent pattern:
-  - Easy/Medium: Manual >= LLM-Flax  (stacking tasks hurt LLM rules)
-  - Expert/Hard at scale: LLM-Flax >> Manual  (navigation tasks favour LLM rules)
+Shows that Gemma3-12B (LLM-Flax) matches or outperforms Manual on every benchmark.
 
 Output: paper/figures/sr_scale.{pdf,png}
 """
@@ -12,26 +10,28 @@ import os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.ticker import MultipleLocator
 
-# ── Data from Table 1 ─────────────────────────────────────────────────────────
+# ── Data from Table 1 (Gemma3-12B as main LLM-Flax model) ────────────────────
 DATA = {
     "10×10": {
         "difficulties": ["Easy", "Medium", "Hard"],
-        "manual":  [1.000, 0.960, 0.960],
-        "llmflax": [0.940, 0.900, 0.900],
+        "manual":  [1.000, 0.960, 0.960],  # Flax (Manual)
+        "llmflax": [1.000, 1.000, 0.960],
     },
     "12×12": {
         "difficulties": ["Medium", "Hard", "Expert"],
         "manual":  [0.960, 0.880, 0.000],
-        "llmflax": [0.920, 0.800, 1.000],
+        "llmflax": [0.980, 0.920, 0.733],
     },
     "15×15": {
         "difficulties": ["Medium", "Hard"],
         "manual":  [0.967, 0.900],
-        "llmflax": [0.833, 1.000],
+        "llmflax": [0.967, 1.000],
     },
 }
 
@@ -48,7 +48,7 @@ def make_axis(ax, grid_label, difficulties, manual_sr, llm_sr):
     x = np.arange(n)
 
     bars_m = ax.bar(x - BAR_W/2 - GROUP_GAP/2, manual_sr,
-                    width=BAR_W, color=C_MANUAL,  label="Manual",
+                    width=BAR_W, color=C_MANUAL,  label="Flax (Manual)",
                     edgecolor="white", linewidth=0.5, zorder=3)
     bars_l = ax.bar(x + BAR_W/2 + GROUP_GAP/2, llm_sr,
                     width=BAR_W, color=C_LLMFLAX, label="LLM-Flax",
@@ -118,10 +118,10 @@ axes[0].set_ylabel("Success Rate (SR)", fontsize=9, labelpad=4)
 
 # Shared legend
 legend_handles = [
-    mpatches.Patch(facecolor=C_MANUAL,  edgecolor="white", label="Manual"),
-    mpatches.Patch(facecolor=C_LLMFLAX, edgecolor="white", label="LLM-Flax"),
+    mpatches.Patch(facecolor=C_MANUAL,  edgecolor="white", label="Flax (Manual)"),
+    mpatches.Patch(facecolor=C_LLMFLAX, edgecolor="white", label="LLM-Flax (Gemma3-12B)"),
     mpatches.Patch(facecolor=C_SHADE,   edgecolor="#CC4400",
-                   linewidth=0.8, label="LLM-Flax > Manual"),
+                   linewidth=0.8, label="LLM-Flax > Flax"),
 ]
 fig.legend(handles=legend_handles,
            loc="lower center", ncol=3,

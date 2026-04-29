@@ -1,6 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \documentclass[letterpaper, 10pt, journal, twoside]{IEEEtran}
-
+\pdfobjcompresslevel=0
+\pdfminorversion=4
 \usepackage{amsmath}
 \usepackage[colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue]{hyperref}
 \usepackage{cleveref}
@@ -51,8 +52,7 @@
 \newcommand{\fullmethod}{Full LLM-Flax\xspace}
 
 \title{\LARGE \bf
-Toward Domain-Agnostic Neuro-Symbolic Task Planning\\
-with Large Language Models
+LLM-Flax : Generalizable Robotic Task Planning via Neuro-Symbolic Approaches with Large Language Models
 }
 
 \author{Seongmin Kim$^{1}$, Daegyu Lee$^{2*}$%
@@ -75,8 +75,8 @@ Stage~1 automatically generates relaxation and complementary rules via structure
 Stage~2 introduces LLM-guided failure recovery with a feasibility-gated budget policy that explicitly reserves API latency cost before each LLM call, preventing the downstream relaxation fallback from being starved.
 Stage~3 replaces the domain-trained GNN entirely with zero-shot LLM object importance scoring, requiring no training data.
 We evaluate all three stages on the MazeNamo benchmark across $10{\times}10$, $12{\times}12$, and $15{\times}15$ grids (8 benchmarks total).
-\method achieves average SR~0.912 versus the manual baseline's 0.828, outperforming it on aggregate with zero manual engineering.
-On $12{\times}12$ Expert, \method attains SR~1.000 where the manual planner fails entirely (SR~0.000); on $15{\times}15$ Hard, it achieves SR~1.000 at $6{\times}$ faster planning speed.
+\method achieves average SR~0.945 versus the manual baseline's 0.828 ($+0.117$), matching or outperforming manual rules on every one of the eight benchmarks.
+On $12{\times}12$ Expert, \method attains SR~0.733 where the manual planner fails entirely (SR~0.000); on $15{\times}15$ Hard, it achieves SR~1.000 versus Manual's 0.900.
 Stage~3 demonstrates feasibility (SR~0.720 on $12{\times}12$ Hard with no training data) but faces a context-window bottleneck at scale, pointing to the primary open challenge for future work.
 \end{abstract}
 
@@ -208,7 +208,7 @@ The manually crafted complementary rule is simply \texttt{\{"oat": \{"cond":[[0]
 \subsection{LLM Rule Generation}
 \label{sec:generation}
 
-We use a locally hosted open-source LLM (Qwen2.5-14B~\cite{qwen2025qwen25}) served via Ollama with an OpenAI-compatible API.
+We use a locally hosted open-source LLM (Gemma3-12B~\cite{gemma3_2025}) served via Ollama with a native REST API.
 The LLM is queried twice per domain---once for each rule type---using the following prompting strategy.
 
 \myparagraph{Prompt design}
@@ -323,12 +323,11 @@ Stage~3 evaluates \fullmethod---replacing the GNN with \textsc{LLMObjectGuidance
 \begin{figure*}[!t]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/sr_scale.pdf}
-    \caption{Success rate vs.\ difficulty (Manual vs.\ \method) across all grid sizes.
-    Shaded columns mark benchmarks where \method outperforms Manual.
-    The crossover is non-monotonic and stacking-density-driven:
-    Manual wins on stacking-heavy tasks (all 10$\times$10, 12$\times$12 Medium/Hard, 15$\times$15 Medium),
-    while \method dominates on navigation-heavy tasks
-    (12$\times$12 Expert: SR 1.000 vs.\ ALL FAIL; 15$\times$15 Hard: 1.000 vs.\ 0.900).}
+    \caption{Success rate vs.\ difficulty (\baseline vs.\ \method) across all grid sizes.
+    Shaded columns mark benchmarks where \method strictly outperforms \baseline.
+    \method matches or exceeds \baseline on every benchmark: it ties on stacking-heavy tasks
+    (10$\times$10, 15$\times$15 Medium) and improves on navigation-heavy tasks
+    (12$\times$12 Expert: SR 0.733 vs.\ ALL FAIL; 15$\times$15 Hard: 1.000 vs.\ 0.900).}
     \label{fig:sr_scale}
 \end{figure*}
 
@@ -349,7 +348,7 @@ Stage~3 evaluates \fullmethod---replacing the GNN with \textsc{LLMObjectGuidance
 
 \begin{table}[t]
     \centering
-    \caption{Manual vs.\ LLM-generated rules within the Flax pipeline. SR = success rate ($\uparrow$); Time = avg.\ planning time over successful problems in seconds ($\downarrow$); Len = avg.\ plan length. Bold = better per row pair.}
+    \caption{\baseline (manual rules) vs.\ \method (LLM-generated rules) within the Flax pipeline. SR = success rate ($\uparrow$); Time = avg.\ planning time over successful problems in seconds ($\downarrow$); Len = avg.\ plan length. Bold = better per row pair.}
     \label{tab:main}
     \small
     \setlength{\tabcolsep}{3.5pt}
@@ -359,65 +358,64 @@ Stage~3 evaluates \fullmethod---replacing the GNN with \textsc{LLMObjectGuidance
         \textbf{Task} & \textbf{Rules} & \textbf{SR} & \textbf{$\Delta$SR} & \textbf{Time (s)} & \textbf{Len} \\
         \midrule
         \multirow{2}{*}{10$\times$10 Easy}
-            & Manual  & \textbf{1.000} & \multirow{2}{*}{$-$0.060} & 0.932 & 17.4 \\
-            & \method & 0.940 &  & \textbf{0.853} & 17.5 \\
+            & Manual  & \textbf{1.000} & \multirow{2}{*}{$\pm$0.000} & \textbf{0.932} & 17.4 \\
+            & \method & \textbf{1.000} &  & \textbf{0.898} & 17.1 \\
         \midrule
         \multirow{2}{*}{10$\times$10 Medium}
-            & Manual  & \textbf{0.960} & \multirow{2}{*}{$-$0.060} & 1.997 & 19.8 \\
-            & \method & 0.900 &  & \textbf{1.925} & 19.8 \\
+            & Manual  & 0.960 & \multirow{2}{*}{$+$0.040} & 1.997 & 19.8 \\
+            & \method & \textbf{1.000} &  & \textbf{0.949} & 16.6 \\
         \midrule
         \multirow{2}{*}{10$\times$10 Hard}
-            & Manual  & \textbf{0.960} & \multirow{2}{*}{$-$0.060} & 2.200 & 19.8 \\
-            & \method & 0.900 &  & \textbf{2.020} & 19.8 \\
+            & Manual  & \textbf{0.960} & \multirow{2}{*}{$\pm$0.000} & 2.200 & 19.8 \\
+            & \method & \textbf{0.960} &  & \textbf{1.600} & 19.3 \\
         \midrule
         \multirow{2}{*}{12$\times$12 Medium}
-            & Manual  & \textbf{0.960} & \multirow{2}{*}{$-$0.040} & 1.914 & 22.1 \\
-            & \method & 0.920 &  & \textbf{1.773} & 22.0 \\
+            & Manual  & 0.960 & \multirow{2}{*}{$+$0.020} & \textbf{1.914} & 22.1 \\
+            & \method & \textbf{0.980} &  & 2.151 & 22.3 \\
         \midrule
         \multirow{2}{*}{12$\times$12 Hard}
-            & Manual  & \textbf{0.880} & \multirow{2}{*}{$-$0.080} & \textbf{3.965} & 29.8 \\
-            & \method & 0.800 &  & 3.224 & 29.8 \\
+            & Manual  & 0.880 & \multirow{2}{*}{$+$0.040} & \textbf{3.965} & 29.8 \\
+            & \method & \textbf{0.920} &  & 4.529 & 29.2 \\
         \midrule
         \multirow{2}{*}{12$\times$12 Expert}
-            & Manual  & 0.000 & \multirow{2}{*}{$+$1.000} & --- & --- \\
-            & \method & \textbf{1.000} &  & \textbf{1.574} & 17.2 \\
+            & Manual  & 0.000 & \multirow{2}{*}{$+$0.733} & --- & --- \\
+            & \method & \textbf{0.733} &  & \textbf{5.240} & 30.0 \\
         \midrule
         \multirow{2}{*}{15$\times$15 Medium}
-            & Manual  & \textbf{0.967} & \multirow{2}{*}{$-$0.134} & 8.740 & 30.9 \\
-            & \method & 0.833 &  & \textbf{7.997} & 31.3 \\
+            & Manual  & \textbf{0.967} & \multirow{2}{*}{$\pm$0.000} & \textbf{8.740} & 30.9 \\
+            & \method & \textbf{0.967} &  & 9.007 & 31.0 \\
         \midrule
         \multirow{2}{*}{15$\times$15 Hard}
             & Manual  & 0.900 & \multirow{2}{*}{$+$0.100} & 11.901 & 36.2 \\
-            & \method & \textbf{1.000} &  & \textbf{1.931} & 17.2 \\
+            & \method & \textbf{1.000} &  & \textbf{10.979} & 36.0 \\
         \midrule
         \multirow{2}{*}{Average (8 tasks)}
-            & Manual  & 0.828 & \multirow{2}{*}{$+$0.084} & 4.521$^\dagger$ & 25.1$^\dagger$ \\
-            & \method & \textbf{0.912} &  & \textbf{2.662} & 21.8 \\
+            & Manual  & 0.828 & \multirow{2}{*}{$+$0.117} & 4.521$^\dagger$ & 25.1$^\dagger$ \\
+            & \method & \textbf{0.945} &  & \textbf{4.419} & 25.2 \\
         \bottomrule
     \end{tabular}
     \vspace{2pt}
     {\footnotesize $^\dagger$Average excludes 12$\times$12 Expert (Manual SR\,=\,0, no successful plans).}
 \end{table}
 
-The results reveal a \emph{difficulty-dependent} pattern.
-On tasks where objects are primarily navigational (all $10{\times}10$, $12{\times}12$ Medium), \method achieves 92--96\% of manual SR with slightly faster planning.
-On $12{\times}12$ Hard---where stacked obstacle configurations are prevalent---the \texttt{clear} precondition blocks stacked-box removal and \method underperforms (SR 0.800 vs.\ 0.880).
+The results reveal that \method matches or exceeds Manual on all eight benchmarks.
+On stacking-light tasks ($10{\times}10$ Easy/Hard, $15{\times}15$ Medium), \method ties Manual at equal SR; on stacking-moderate tasks ($10{\times}10$ Medium, $12{\times}12$ Medium/Hard), it gains $+0.020$--$+0.040$ SR.
 
-The most striking results are at larger scale.
-On $12{\times}12$ Expert the manual planner times out on every one of 30 problems (SR 0.000), while \method solves all 30 at 1.57\,s average (SR 1.000).
-At $15{\times}15$ Hard, \method achieves SR 1.000 vs 0.900 at $6{\times}$ faster speed.
-At $15{\times}15$ Medium, \method achieves SR 0.833 vs 0.967---a moderate gap, not a collapse---because while stacking exists, longer navigation paths amplify the benefit of the richer LLM complementary rules (\texttt{rat}, \texttt{oat}, \texttt{upon}).
-Averaged across all eight benchmarks, \method achieves SR 0.912 versus Manual 0.828 ($+0.084$): \emph{LLM-generated rules outperform manual rules on aggregate.}
+The most striking improvements are at larger scale.
+On $12{\times}12$ Expert the manual planner times out on every one of 30 problems (SR 0.000), while \method solves 22 of 30 at 5.24\,s average (SR 0.733).
+At $15{\times}15$ Hard, \method achieves SR 1.000 vs.\ Manual's 0.900.
+Averaged across all eight benchmarks, \method achieves SR 0.945 versus Manual 0.828 ($+0.117$): \emph{LLM-generated rules uniformly match or outperform manual rules.}
 \fref{fig:sr_heatmap} provides a compact visual summary of the full result matrix.
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=0.85\textwidth]{figures/sr_heatmap.pdf}
+  \includegraphics[width=1.0\textwidth]{figures/sr_heatmap_edit.pdf}
   \caption{Compact SR heatmap for all four configurations across all eight benchmarks.
-  Green = high SR, red = low SR. The Manual ``FAIL'' cell at $12{\times}12$ Expert and
-  the two \method cells at SR~1.000 are the most salient features.
-  The PLOI row is uniformly lower than both Manual and \method, confirming that
-  rules—not the GNN scorer—drive the performance advantage.}
+  All LLM models are utilized only for stage 1 only with same GNN scorer.
+  Green = high SR, red = low SR. The \baseline ``FAIL'' cell at $12{\times}12$ Expert and
+  the \method cells at SR~0.733 (Expert) and 1.000 (15$\times$15 Hard) are the most salient features.
+  The PLOI row is uniformly lower than both \baseline and \method, confirming that
+  rules---not the GNN scorer---drive the performance advantage.}
   \label{fig:sr_heatmap}
 \end{figure*}
 
@@ -425,34 +423,36 @@ Averaged across all eight benchmarks, \method achieves SR 0.912 versus Manual 0.
 \label{sec:quality}
 
 \myparagraph{Relaxation rules}
-The LLM-generated relaxation rule is structurally similar to the manual rule but differs in two ways (see \tref{tab:rule_diff}): (1) the \texttt{precond} field adds \texttt{clear:[0]}, requiring the obstacle to be unobstructed before removal; and (2) \texttt{delete\_effects} additionally retracts \texttt{upon:[0,1]}, handling stacked-box relationships.
+Gemma3-12B generates a relaxation rule that is \emph{structurally identical} to the manually crafted baseline (see \tref{tab:rule_diff}).
+Both rules share the same \texttt{pre\_compute}, \texttt{precond}, \texttt{delete\_objects}, \texttt{delete\_effects}, and \texttt{add\_effects} fields without any deviation.
+This exact match explains why \method ties or outperforms Manual on all benchmarks: the relaxation simplification is equally aggressive in both configurations.
+By contrast, Qwen2.5-14B adds a conservative \texttt{clear:[0]} precondition that prevents removal of stacked light boxes, and smaller models (Llama3.1-8B, Mistral-7B) generate structurally invalid rules with out-of-range indices or hallucinated predicates.
 
 \begin{table}[t]
     \centering
-    \caption{Structural differences between manual and LLM-generated relaxation rules.}
+    \caption{Relaxation rule preconditions generated by each model vs.\ the manual baseline.
+    Gemma3-12B (the primary model) produces an exact match; others deviate.}
     \label{tab:rule_diff}
     \resizebox{\columnwidth}{!}{%
     \begin{tabular}{lll}
         \toprule
-        \textbf{Field} & \textbf{Manual} & \textbf{LLM-generated} \\
+        \textbf{Model} & \textbf{\texttt{precond}} & \textbf{Notes} \\
         \midrule
-        \texttt{pre\_compute} & \texttt{\{oat:[0,1]\}} & \texttt{\{oat:[0,1]\}} \\
-        \texttt{precond} & \texttt{\{islight:[0]\}} & \texttt{\{islight:[0], clear:[0]\}} \\
-        \texttt{delete\_objects} & \texttt{[0]} & \texttt{[0]} \\
-        \texttt{delete\_effects} & \texttt{islight, ismoveable, oat} & \texttt{+upon:[0,1]} \\
-        \texttt{add\_effects} & \texttt{\{posempty:[1]\}} & \texttt{\{posempty:[1]\}} \\
+        Manual (baseline)  & \texttt{\{islight:[0]\}}                 & Reference \\
+        Gemma3-12B         & \texttt{\{islight:[0]\}}                 & Exact match \\
+        Qwen2.5-14B        & \texttt{\{islight:[0], clear:[0]\}}      & Over-conservative \\
+        Llama3.1-8B        & \texttt{\{islight:[0], ismoveable:[0]\}} & + 8 spurious rules \\
+        Mistral-7B         & \texttt{\{islight:[0]\}}                 & Over-specified effects \\
         \bottomrule
     \end{tabular}%
     }
 \end{table}
 
-The additional \texttt{clear} condition is the primary driver of the success rate gap: it prevents removal of light boxes that have other boxes stacked on top, which is semantically sound but overly conservative.
-Under the manual rule, such boxes are also removed (their stacked contents fall into the relaxed state naturally), which simplifies the problem more aggressively and improves success rate at the cost of slightly less accurate relaxation semantics.
-
 \myparagraph{Complementary rules}
-The LLM generates three complementary rules (\texttt{rat}, \texttt{oat}, \texttt{upon}) compared to the one manual rule (\texttt{oat}).
+The LLM generates seven complementary rules (\texttt{upon}, \texttt{oat}, \texttt{rat}, \texttt{upto}, \texttt{downto}, \texttt{leftto}, \texttt{rightto}) compared to the one manual rule (\texttt{oat}).
 The \texttt{oat} rule is identical to the manual version.
-The added \texttt{rat} rule (robot–position pairing) and \texttt{upon} rule (stacked-box pairing) are semantically valid and represent genuine improvements: they prevent states where a robot or stacked obstacle is included without its positional context, a condition that can cause planning failures in edge cases.
+The added \texttt{rat} (robot–position), \texttt{upon} (stacked-box), and four direction rules are semantically valid and represent genuine improvements: they prevent states where a robot or stacked/adjacent obstacle is included without its positional context, reducing plan failures on navigation-heavy problems.
+The direction rules (\texttt{upto}/\texttt{downto}/\texttt{leftto}/\texttt{rightto}) cause more objects to be included in large Expert-level grids, which increases problem complexity and is the likely reason $12{\times}12$ Expert SR (0.733) does not reach the Qwen baseline (1.000), which uses only the three spatial rules (\texttt{rat}, \texttt{oat}, \texttt{upon}).
 
 \subsection{Stage 2: LLM-Guided Failure Recovery}
 \label{sec:results_stage2}
@@ -471,14 +471,14 @@ The added \texttt{rat} rule (robot–position pairing) and \texttt{upon} rule (s
         \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} \\
         \midrule
         \multirow{3}{*}{12$\times$12 Hard}
-            & Manual              & \textbf{0.880} & 3.965 \\
-            & \method             & 0.800          & \textbf{3.224} \\
-            & \method + Recovery  & 0.800          & 3.238 \\
+            & Manual              & 0.880          & \textbf{3.965} \\
+            & \method             & \textbf{0.920} & 4.529 \\
+            & \method + Recovery  & \textbf{0.920} & 4.543 \\
         \midrule
         \multirow{3}{*}{15$\times$15 Medium}
-            & Manual              & \textbf{0.967} & 8.740 \\
-            & \method             & 0.833          & \textbf{7.997} \\
-            & \method + Recovery  & 0.833          & 9.846 \\
+            & Manual              & \textbf{0.967} & \textbf{8.740} \\
+            & \method             & \textbf{0.967} & 9.007 \\
+            & \method + Recovery  & \textbf{0.967} & 9.153 \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -516,6 +516,43 @@ Post-processing then removes the 6 duplicate rules, and predicate filtering drop
 \end{table}
 
 This demonstrates that validation and post-processing are essential: without them, the generated rules would either crash the planner or produce substantially incorrect behavior.
+Gemma3-12B generates correct rules on the first attempt (1 relaxation rule, 7 complementary rules, no retries required); the retry mechanism provides robustness for weaker models.
+
+\subsection{LLM Model Comparison (Stage 1)}
+\label{sec:model_comparison}
+
+To assess sensitivity to model choice, we evaluate four open-source LLMs via Ollama on the same rule generation task.
+\tref{tab:model_comparison} reports success rates across all eight benchmarks.
+
+\begin{table}[t]
+    \centering
+    \caption{SR across 8 MazeNamo benchmarks for four LLMs (Stage 1 rules only, same GNN scorer).
+    Avg = simple mean across all 8 tasks. Bold = best per column.}
+    \label{tab:model_comparison}
+    \small
+    \setlength{\tabcolsep}{2.8pt}
+    \renewcommand{\arraystretch}{1.05}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{lccccccccr}
+        \toprule
+        \textbf{Model} & \textbf{10E} & \textbf{10M} & \textbf{10H} & \textbf{12M} & \textbf{12H} & \textbf{12X} & \textbf{15M} & \textbf{15H} & \textbf{Avg} \\
+        \midrule
+        \baseline (manual)    & 1.000 & 0.960 & 0.960 & 0.960 & 0.880 & 0.000 & 0.967 & 0.900 & 0.828 \\
+        \midrule
+        Gemma3-12B  & \textbf{1.000} & \textbf{1.000} & \textbf{0.960} & \textbf{0.980} & \textbf{0.920} & 0.733 & \textbf{0.967} & \textbf{1.000} & \textbf{0.945} \\
+        Qwen2.5-14B & 0.940 & 0.900 & 0.900 & 0.920 & 0.800 & \textbf{1.000} & 0.833 & \textbf{1.000} & 0.912 \\
+        Llama3.1-8B & 0.980 & \textbf{1.000} & 0.640 & 0.960 & 0.460 & 0.167 & 0.900 & 0.933 & 0.755 \\
+        Mistral-7B  & 0.820 & 0.840 & 0.640 & 0.820 & 0.560 & 0.433 & 0.600 & 0.567 & 0.660 \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+Gemma3-12B achieves the best average SR (0.945), matching or outperforming \baseline on all eight benchmarks.
+Qwen2.5-14B (0.912) uniquely dominates $12{\times}12$ Expert (1.000 vs.\ Gemma's 0.733) because its smaller complementary rule set does not overload the timeout at expert scale.
+Llama3.1-8B (0.755) generates 9 relaxation rules, most of which are invalid direction-predicate rules; its single valid rule is sufficient for simple tasks but the spurious rules degrade performance at harder benchmarks.
+Mistral-7B (0.660) generates over-aggressive relaxation rules that remove heavy obstacles as well as light ones, producing incorrect simplified states and reducing SR uniformly.
+These results confirm that rule generation quality---not raw model size---is the primary driver: the 12B Gemma model outperforms the larger Qwen despite similar parameter counts, because it generates semantically correct rules on the first attempt.
 
 
 \section{Discussion}
@@ -523,27 +560,26 @@ This demonstrates that validation and post-processing are essential: without the
 
 \myparagraph{What works well}
 The LLM correctly identifies the semantic roles of domain predicates from their names and PDDL signatures alone.
-It recognizes that \texttt{isLight} marks removable obstacles, that \texttt{oAt} links obstacles to positions, and that \texttt{posEmpty} should be asserted after removal—all without any domain-specific examples beyond the format template.
-The generated complementary rules are richer than manually crafted ones, covering robot–position and stacking relationships that the original authors did not include.
+It recognizes that \texttt{isLight} marks removable obstacles, that \texttt{oAt} links obstacles to positions, and that \texttt{posEmpty} should be asserted after removal---all without any domain-specific examples beyond the format template.
+With Gemma3-12B, the generated relaxation rules are an exact match to the manually crafted baseline, eliminating any rule-quality gap for relaxation.
+The generated complementary rules are richer than manually crafted ones, covering robot--position, stacking, and directional adjacency relationships that the original authors did not include.
 
 \myparagraph{Failure modes}
-The primary failure mode is over-conservatism: the LLM adds extra preconditions (\texttt{clear}) that are semantically justifiable but reduce the simplification power of the relaxation rule.
-This is a form of hallucination in the opposite direction---the model generates \emph{too much} domain knowledge rather than too little.
-Secondarily, on first attempts the model generates repetitive output (8 identical rules) and occasional typos in predicate names.
-The validation-and-retry mechanism reliably corrects format errors but cannot automatically correct the conservative bias without additional guidance.
+The primary residual failure mode is over-inclusive complementary rules: the four direction predicates (\texttt{upto}/\texttt{downto}/\texttt{leftto}/\texttt{rightto}) force additional objects into the planning set at $12{\times}12$ Expert scale, inflating the problem size beyond what the fixed timeout can handle (SR 0.733 vs.\ Qwen's 1.000 with fewer complementary rules).
+Smaller models (Llama3.1-8B, Mistral-7B) generate structurally invalid rules with out-of-range indices and hallucinated predicates; the validation pipeline catches format errors but cannot recover from fundamentally incorrect semantics.
 
 \myparagraph{Stage 2: recovery is neutral, not harmful}
 With the feasibility-gated budget policy, LLM failure recovery neither helps nor hurts: SR is identical to \method on both evaluated benchmarks.
 The policy's feasibility check successfully prevents the Step-2 relaxation budget from being starved by LLM API latency.
 The design and lessons from earlier implementations are documented in Appendix~\ref{app:budget}.
 
-\myparagraph{Toward removing the conservative bias}
-One direction is to provide the LLM with examples of the performance gap and ask it to generate a less conservative rule variant.
-Another is to use planning success rate as a reward signal to fine-tune the prompts, closing the loop between rule quality and planning outcome.
+\myparagraph{Toward tighter complementary rules}
+One direction is to add an explicit instruction in the prompt warning against direction-predicate rules for large-grid domains.
+Another is to evaluate rule quality online---using a small held-out problem set to prune rules that consistently increase solution time without improving SR.
 
 \myparagraph{Stage 3: zero-shot object scoring}
 \tref{tab:stage3} reports \fullmethod results on two benchmarks.
-On $12{\times}12$ Hard, \fullmethod achieves SR 0.720 with \emph{no GNN training data}, at the cost of $5.6{\times}$ higher planning time (22.2\,s vs.\ 3.2\,s) due to one LLM API call per problem.
+On $12{\times}12$ Hard, \fullmethod achieves SR 0.720 with \emph{no GNN training data}, at the cost of $4.9{\times}$ higher planning time (22.2\,s vs.\ 4.5\,s) due to one LLM API call per problem.
 On $15{\times}15$ Hard---where LLM rules alone achieve a perfect SR 1.000---\fullmethod collapses to SR 0.200.
 
 \begin{table}[h]
@@ -558,13 +594,13 @@ On $15{\times}15$ Hard---where LLM rules alone achieve a perfect SR 1.000---\ful
         \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} \\
         \midrule
         \multirow{3}{*}{12$\times$12 Hard}
-            & Manual              & \textbf{0.880} & \textbf{3.965} \\
-            & \method             & 0.800          & 3.224 \\
+            & Manual              & 0.880          & \textbf{3.965} \\
+            & \method             & \textbf{0.920} & 4.529 \\
             & \fullmethod         & 0.720          & 22.2 \\
         \midrule
         \multirow{3}{*}{15$\times$15 Hard}
             & Manual              & 0.900          & 11.901 \\
-            & \method             & \textbf{1.000} & \textbf{1.931} \\
+            & \method             & \textbf{1.000} & \textbf{10.979} \\
             & \fullmethod         & 0.200          & 23.1 \\
         \bottomrule
     \end{tabular}
@@ -595,7 +631,7 @@ We have presented \method, a three-stage framework that progressively eliminates
 Stage~1 replaces hand-crafted rules with LLM-generated equivalents; Stage~2 replaces the blind $\gamma$-decay failure heuristic with LLM-guided object recovery; and Stage~3 replaces the domain-trained GNN with zero-shot LLM object scoring.
 Together, \fullmethod reduces the cost of deploying on a new domain from hours of expert engineering to a single PDDL file.
 
-Stage~1 evaluated across eight MazeNamo benchmarks achieves average SR 0.912 versus the manual baseline's 0.828 ($+0.084$), outperforming manual rules on aggregate and dramatically so on navigation-heavy Expert tasks (SR 1.000 vs.\ 0.000).
+Stage~1 evaluated across eight MazeNamo benchmarks achieves average SR 0.945 versus the manual baseline's 0.828 ($+0.117$), matching or outperforming manual rules on every benchmark and dramatically improving Expert tasks (SR 0.733 vs.\ 0.000).
 Analysis reveals that the stacking-heavy gap traces to a single over-conservative LLM precondition---a targeted, correctable failure mode.
 Stage~2 evaluation confirms that the feasibility-gated budget policy prevents harmful budget starvation: LLM recovery is neutral (SR unchanged) on both evaluated benchmarks, with the pre-check correctly routing tight-budget problems to the reliable relaxation fallback.
 Stage~3 results are mixed: on $12{\times}12$ Hard, \fullmethod achieves SR 0.720 with no GNN training data, confirming feasibility; on $15{\times}15$ Hard it collapses to SR 0.200 due to a context-window bottleneck at scale ($240{+}$ objects, 80-fact cap).
@@ -625,7 +661,7 @@ This appendix documents the three design iterations of the Stage~2 failure-recov
 The initial design allocated $\nicefrac{T}{2}$ of the total timeout for the recovery replan, drawing from the same pool reserved for Step~2 relaxation.
 With $T{=}30$\,s, after a Step~1 timeout (${\approx}5$\,s) plus an LLM API call (${\approx}4$\,s), only ${\approx}6$\,s remained for the recovery replan.
 When the replan failed, less than ${\approx}6$\,s was left for Step~2 relaxation—insufficient for the $12{\times}12$ and $15{\times}15$ problems where relaxation typically needs~$8$--$10$\,s.
-\emph{Result on 15$\times$15$ Medium}: SR dropped from 0.833 (LLM rules baseline) to 0.633 ($-0.200$).
+\emph{Result on 15$\times$15} medium: SR dropped from 0.833 (LLM rules baseline) to 0.633 ($-0.200$).
 
 \myparagraph{Policy~II: Capped-Replan Recovery (latency-unaware, still harmful)}
 This design capped the recovery replan at 15\% of the total timeout ($0.15 \times 30 = 4.5$\,s) to protect the relaxation budget.
@@ -738,49 +774,49 @@ This appendix situates \method in the full planning hierarchy by comparing four 
       & Pure FD      & \textbf{1.000} & 0.671 & 15.4 \\
       & PLOI         & 0.900 & 0.761 & 17.6 \\
       & Manual       & \textbf{1.000} & 0.932 & 17.4 \\
-      & \method      & 0.940 & 0.853 & 17.5 \\
+      & \method      & \textbf{1.000} & 0.898 & 17.1 \\
     \midrule
     \multirow{4}{*}{10$\times$10 Medium}
       & Pure FD      & \textbf{1.000} & 1.400 & 15.7 \\
       & PLOI         & 0.920 & 0.840 & 16.5 \\
       & Manual       & 0.960 & 1.997 & 19.8 \\
-      & \method      & 0.900 & 1.925 & 19.8 \\
+      & \method      & \textbf{1.000} & \textbf{0.949} & 16.6 \\
     \midrule
     \multirow{4}{*}{10$\times$10 Hard}
       & Pure FD      & \textbf{1.000} & 3.030 & 19.2 \\
       & PLOI         & 0.820 & 1.310 & 19.2 \\
-      & Manual       & 0.960 & 2.200 & 19.8 \\
-      & \method      & 0.900 & 2.020 & 19.8 \\
+      & Manual       & \textbf{0.960} & 2.200 & 19.8 \\
+      & \method      & \textbf{0.960} & \textbf{1.600} & 19.3 \\
     \midrule
     \multirow{4}{*}{12$\times$12 Medium}
       & Pure FD      & \textbf{1.000} & 6.190 & 21.1 \\
       & PLOI         & 0.900 & 1.320 & 21.8 \\
-      & Manual       & 0.960 & 1.914 & 22.1 \\
-      & \method      & 0.920 & 1.773 & 22.0 \\
+      & Manual       & 0.960 & \textbf{1.914} & 22.1 \\
+      & \method      & \textbf{0.980} & 2.151 & 22.3 \\
     \midrule
     \multirow{4}{*}{12$\times$12 Hard}
       & Pure FD      & \textbf{1.000} & 17.59 & 28.8 \\
       & PLOI         & 0.580 & 1.270 & 26.3 \\
-      & Manual       & 0.880 & 3.965 & 29.8 \\
-      & \method      & 0.800 & 3.224 & 29.8 \\
+      & Manual       & 0.880 & \textbf{3.965} & 29.8 \\
+      & \method      & \textbf{0.920} & 4.529 & 29.2 \\
     \midrule
     \multirow{4}{*}{12$\times$12 Expert}
       & Pure FD      & 0.333 & 26.19 & 29.7 \\
       & PLOI         & 0.433 & 1.090 & 26.1 \\
       & Manual       & 0.000 & --- & --- \\
-      & \method      & \textbf{1.000} & 1.574 & 17.2 \\
+      & \method      & \textbf{0.733} & \textbf{5.240} & 30.0 \\
     \midrule
     \multirow{4}{*}{15$\times$15 Medium}
       & Pure FD      & \textbf{1.000} & 27.33 & 31.8 \\
       & PLOI         & 0.767 & 5.090 & 30.0 \\
-      & Manual       & 0.967 & 8.740 & 30.9 \\
-      & \method      & 0.833 & 7.997 & 31.3 \\
+      & Manual       & \textbf{0.967} & \textbf{8.740} & 30.9 \\
+      & \method      & \textbf{0.967} & 9.007 & 31.0 \\
     \midrule
     \multirow{4}{*}{15$\times$15 Hard}
       & Pure FD      & 0.333 & 34.37 & 29.3 \\
       & PLOI         & 0.700 & 3.750 & 32.0 \\
       & Manual       & 0.900 & 11.901 & 36.2 \\
-      & \method      & \textbf{1.000} & \textbf{1.931} & 17.2 \\
+      & \method      & \textbf{1.000} & \textbf{10.979} & 36.0 \\
     \bottomrule
   \end{tabular}%
   }

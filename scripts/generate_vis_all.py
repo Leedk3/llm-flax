@@ -18,6 +18,8 @@ import os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 

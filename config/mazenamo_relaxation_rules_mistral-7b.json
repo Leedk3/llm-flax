@@ -1,0 +1,394 @@
+{
+    "rule0": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "islight": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "islight": [
+                0
+            ],
+            "ismoveable": [
+                0
+            ],
+            "oat": [
+                0,
+                1
+            ],
+            "onground": [
+                0
+            ],
+            "clear": [
+                0
+            ],
+            "holding": [
+                0
+            ],
+            "handempty": [],
+            "dirisup": [
+                0
+            ],
+            "dirisdown": [
+                0
+            ],
+            "dirisleft": [
+                0
+            ],
+            "dirisright": [
+                0
+            ],
+            "rat": [
+                0,
+                1
+            ],
+            "upon": [
+                0,
+                1
+            ]
+        },
+        "add_effects": {
+            "posempty": [
+                1
+            ],
+            "onground": [
+                1
+            ],
+            "clear": [
+                1
+            ],
+            "holding": [
+                1
+            ],
+            "handempty": [
+                1
+            ],
+            "rat": [
+                1,
+                2
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule1": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "isheavy": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "isheavy": [
+                0
+            ],
+            "ismoveable": [
+                0
+            ],
+            "oat": [
+                0,
+                1
+            ],
+            "onground": [
+                0
+            ],
+            "clear": [
+                0
+            ],
+            "holding": [
+                0
+            ],
+            "handempty": [],
+            "rat": [
+                0,
+                1
+            ],
+            "upon": [
+                0,
+                1
+            ]
+        },
+        "add_effects": {
+            "posempty": [
+                1
+            ],
+            "onground": [
+                1
+            ],
+            "clear": [
+                1
+            ],
+            "holding": [
+                1
+            ],
+            "handempty": [
+                1
+            ],
+            "rat": [
+                1,
+                2
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule2": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "ismoveable": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "ismoveable": [
+                0
+            ],
+            "oat": [
+                0,
+                1
+            ],
+            "onground": [
+                0
+            ],
+            "clear": [
+                0
+            ],
+            "holding": [
+                0
+            ],
+            "handempty": [],
+            "rat": [
+                0,
+                1
+            ],
+            "upon": [
+                0,
+                1
+            ]
+        },
+        "add_effects": {
+            "posempty": [
+                1
+            ],
+            "onground": [
+                1
+            ],
+            "clear": [
+                1
+            ],
+            "holding": [
+                1
+            ],
+            "handempty": [
+                1
+            ],
+            "rat": [
+                1,
+                2
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule3": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "onground": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "onground": [
+                0
+            ],
+            "oat": [
+                0,
+                1
+            ],
+            "clear": [
+                0
+            ],
+            "holding": [
+                0
+            ],
+            "handempty": [],
+            "rat": [
+                0,
+                1
+            ]
+        },
+        "add_effects": {
+            "posempty": [
+                1
+            ],
+            "onground": [
+                1
+            ],
+            "clear": [
+                1
+            ],
+            "holding": [
+                1
+            ],
+            "handempty": [
+                1
+            ],
+            "rat": [
+                1,
+                2
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule4": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "clear": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "clear": [
+                0
+            ],
+            "oat": [
+                0,
+                1
+            ],
+            "holding": [
+                0
+            ],
+            "handempty": [],
+            "rat": [
+                0,
+                1
+            ]
+        },
+        "add_effects": {
+            "posempty": [
+                1
+            ],
+            "onground": [
+                1
+            ],
+            "clear": [
+                1
+            ],
+            "holding": [
+                1
+            ],
+            "handempty": [
+                1
+            ],
+            "rat": [
+                1,
+                2
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule5": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "holding": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "holding": [
+                0
+            ],
+            "oat": [
+                0,
+                1
+            ],
+            "handempty": [],
+            "rat": [
+                0,
+                1
+            ]
+        },
+        "add_effects": {
+            "posempty": [
+                1
+            ],
+            "onground": [
+                1
+            ],
+            "clear": [
+                1
+            ],
+            "holding": [
+                1
+            ],
+            "handempty": [
+                1
+            ],
+            "rat": [
+                1,
+                2
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule6": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "handempty": []
+        },
+        "delete_effects": {
+            "handempty": []
+        },
+        "add_effects": {
+            "handempty": [
+                1
+            ]
+        },
+        "delete_objects": []
+    }
+}

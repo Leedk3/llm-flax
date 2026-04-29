@@ -1,0 +1,29 @@
+{
+  "size": 10,
+  "difficulty": "easy",
+  "num_problems": 10,
+  "num_seeds": 1,
+  "results": [
+    {
+      "avg_time": 0.9705007076263428,
+      "success_rate": 1.0,
+      "avg_plan_length": 17.0,
+      "wall_time_s": 13.7,
+      "config": "llm_rules_gemma3-12b"
+    },
+    {
+      "avg_time": null,
+      "success_rate": null,
+      "avg_plan_length": null,
+      "wall_time_s": 6.0,
+      "config": "llm_rules_llama3.1-8b"
+    },
+    {
+      "avg_time": null,
+      "success_rate": null,
+      "avg_plan_length": null,
+      "wall_time_s": 6.1,
+      "config": "llm_rules_mistral-7b"
+    }
+  ]
+}

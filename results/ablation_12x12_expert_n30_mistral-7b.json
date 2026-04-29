@@ -1,0 +1,15 @@
+{
+  "size": 12,
+  "difficulty": "expert",
+  "num_problems": 30,
+  "num_seeds": 1,
+  "results": [
+    {
+      "avg_time": 1.1266,
+      "success_rate": 0.4333,
+      "avg_plan_length": 26.1,
+      "wall_time_s": 105.0,
+      "config": "llm_rules_mistral-7b"
+    }
+  ]
+}

@@ -40,13 +40,35 @@ RULE_CONFIGS = {
     },
     "llm_rules": {
         "planner_type": "flax",
-        "cmpl_rules": "config/mazenamo_complementary_rules_qwen2.5-14b.json",
-        "relx_rules": "config/mazenamo_relaxation_rules_qwen2.5-14b.json",
+        "cmpl_rules": "config/mazenamo_complementary_rules_gemma3-12b.json",
+        "relx_rules": "config/mazenamo_relaxation_rules_gemma3-12b.json",
     },
     "llm_rules+recovery": {
         "planner_type": "llmflax",
+        "cmpl_rules": "config/mazenamo_complementary_rules_gemma3-12b.json",
+        "relx_rules": "config/mazenamo_relaxation_rules_gemma3-12b.json",
+    },
+    # ── Qwen2.5-14B (original Stage 1 experiments) ────────────────────────
+    "llm_rules_qwen2.5-14b": {
+        "planner_type": "flax",
         "cmpl_rules": "config/mazenamo_complementary_rules_qwen2.5-14b.json",
         "relx_rules": "config/mazenamo_relaxation_rules_qwen2.5-14b.json",
+    },
+    # ── Model comparison (Stage 1 only, same GNN) ─────────────────────────
+    "llm_rules_llama3.1-8b": {
+        "planner_type": "flax",
+        "cmpl_rules": "config/mazenamo_complementary_rules_llama3.1-8b.json",
+        "relx_rules": "config/mazenamo_relaxation_rules_llama3.1-8b.json",
+    },
+    "llm_rules_mistral-7b": {
+        "planner_type": "flax",
+        "cmpl_rules": "config/mazenamo_complementary_rules_mistral-7b.json",
+        "relx_rules": "config/mazenamo_relaxation_rules_mistral-7b.json",
+    },
+    "llm_rules_gemma3-12b": {
+        "planner_type": "flax",
+        "cmpl_rules": "config/mazenamo_complementary_rules_gemma3-12b.json",
+        "relx_rules": "config/mazenamo_relaxation_rules_gemma3-12b.json",
     },
     # Stage 3: Full LLM-Flax — no GNN training, no manual rules
     "full_llm_flax": {
@@ -170,14 +192,25 @@ def print_comparison_table(all_results: list[dict]):
     print("=" * 70)
 
 
-def save_results(all_results: list[dict], size: int, difficulty: str, num_problems: int):
-    out_path = f"results/ablation_{size}x{size}_{difficulty}_n{num_problems}.json"
+def save_results(all_results: list[dict], size: int, difficulty: str,
+                 num_problems: int, suffix: str = ""):
+    tag = f"_{suffix}" if suffix else ""
+    out_path = f"results/ablation_{size}x{size}_{difficulty}_n{num_problems}{tag}.json"
     os.makedirs("results", exist_ok=True)
-    meta = {
-        "size": size, "difficulty": difficulty,
-        "num_problems": num_problems, "num_seeds": NUM_SEEDS,
-        "results": all_results,
-    }
+    # Merge with existing file: new results overwrite old entries for the same config
+    if os.path.exists(out_path):
+        existing = json.load(open(out_path))
+        new_configs = {r["config"] for r in all_results}
+        kept = [r for r in existing.get("results", []) if r["config"] not in new_configs]
+        merged = kept + all_results
+        existing["results"] = merged
+        meta = existing
+    else:
+        meta = {
+            "size": size, "difficulty": difficulty,
+            "num_problems": num_problems, "num_seeds": NUM_SEEDS,
+            "results": all_results,
+        }
     with open(out_path, "w") as f:
         json.dump(meta, f, indent=2)
     print(f"\nResults saved -> {out_path}")
@@ -196,6 +229,8 @@ if __name__ == "__main__":
                         help="Per-problem timeout in seconds (default: 10)")
     parser.add_argument("--configs",      nargs="+",  default=None,
                         help="Subset of configs to run (default: all)")
+    parser.add_argument("--output_suffix", type=str,  default="",
+                        help="Optional suffix for result filename to avoid overwriting")
     args = parser.parse_args()
 
     setup_pddlgym_symlink(args.size, args.difficulty)
@@ -215,4 +250,5 @@ if __name__ == "__main__":
         all_results.append(metrics)
 
     print_comparison_table(all_results)
-    save_results(all_results, args.size, args.difficulty, args.num_problems)
+    save_results(all_results, args.size, args.difficulty, args.num_problems,
+                 suffix=args.output_suffix)

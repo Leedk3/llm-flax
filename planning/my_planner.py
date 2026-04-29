@@ -54,53 +54,59 @@ def apply_relaxation_rules(state, relaxation_rules, domain, force_include_goal_o
     for rule_name in relaxation_rules:
         rule = relaxation_rules[rule_name]
         pre_compute_relation = {}
-        for lit in state.literals:
-            p_name = lit.predicate.name
-            if p_name in rule["pre_compute"]:
-                if p_name not in pre_compute_relation:
-                    pre_compute_relation[p_name] = {}
-                v0_idx = rule["pre_compute"][p_name][0]
-                v1_idx = rule["pre_compute"][p_name][1]
-                v0, v1 = lit.variables[v0_idx], lit.variables[v1_idx]
-                pre_compute_relation[p_name][v0] = v1
+        try:
+            for lit in state.literals:
+                p_name = lit.predicate.name
+                if p_name in rule["pre_compute"]:
+                    if p_name not in pre_compute_relation:
+                        pre_compute_relation[p_name] = {}
+                    v0_idx = rule["pre_compute"][p_name][0]
+                    v1_idx = rule["pre_compute"][p_name][1]
+                    v0, v1 = lit.variables[v0_idx], lit.variables[v1_idx]
+                    pre_compute_relation[p_name][v0] = v1
+        except (IndexError, KeyError):
+            continue  # skip rules with invalid pre_compute indices
 
         for lit in state.literals:
             p_name = lit.predicate.name
             if p_name in rule["precond"]:
-                v_idx_2_obj = {}
-                for v_idx in rule["precond"][p_name]:
-                    v_idx_2_obj[v_idx] = lit.variables[v_idx]
-                for v_idx in rule["delete_objects"]:
-                    if v_idx_2_obj[v_idx] not in goal_objects:
-                        relaxed_objects.discard(v_idx_2_obj[v_idx])
-                for del_p_name in rule["delete_effects"]:
-                    del_p = domain.predicates[del_p_name]
-                    v_idx_list = rule["delete_effects"][del_p_name]
-                    if len(v_idx_list) == 1:
-                        v_idx = v_idx_list[0]
+                try:
+                    v_idx_2_obj = {}
+                    for v_idx in rule["precond"][p_name]:
+                        v_idx_2_obj[v_idx] = lit.variables[v_idx]
+                    for v_idx in rule["delete_objects"]:
                         if v_idx_2_obj[v_idx] not in goal_objects:
-                            relaxed_literals.discard(Literal(del_p, [v_idx_2_obj[v_idx]]))
-                    elif len(v_idx_list) == 2:
-                        for v_idx in v_idx_list:
-                            if v_idx not in v_idx_2_obj:
-                                v0 = v_idx_2_obj[0]
-                                try:
-                                    v_idx_2_obj[v_idx] = pre_compute_relation[del_p_name][v0]
-                                except:
-                                    continue
-                        try:
-                            candidate_vars = [v_idx_2_obj[v_idx] for v_idx in v_idx_list]
-                            # Do not delete literals that involve goal objects
-                            if not any(v in goal_objects for v in candidate_vars):
-                                relaxed_literals.discard(Literal(del_p, candidate_vars))
-                        except:
-                            continue
-                for add_p_name in rule["add_effects"]:
-                    add_p = domain.predicates[add_p_name]
-                    v_idx_list = rule["add_effects"][add_p_name]
-                    if len(v_idx_list) == 1:
-                        v_idx = v_idx_list[0]
-                        relaxed_literals.add(Literal(add_p, [v_idx_2_obj[v_idx]]))
+                            relaxed_objects.discard(v_idx_2_obj[v_idx])
+                    for del_p_name in rule["delete_effects"]:
+                        del_p = domain.predicates[del_p_name]
+                        v_idx_list = rule["delete_effects"][del_p_name]
+                        if len(v_idx_list) == 1:
+                            v_idx = v_idx_list[0]
+                            if v_idx_2_obj[v_idx] not in goal_objects:
+                                relaxed_literals.discard(Literal(del_p, [v_idx_2_obj[v_idx]]))
+                        elif len(v_idx_list) == 2:
+                            for v_idx in v_idx_list:
+                                if v_idx not in v_idx_2_obj:
+                                    v0 = v_idx_2_obj[0]
+                                    try:
+                                        v_idx_2_obj[v_idx] = pre_compute_relation[del_p_name][v0]
+                                    except (KeyError, IndexError):
+                                        continue
+                            try:
+                                candidate_vars = [v_idx_2_obj[v_idx] for v_idx in v_idx_list]
+                                # Do not delete literals that involve goal objects
+                                if not any(v in goal_objects for v in candidate_vars):
+                                    relaxed_literals.discard(Literal(del_p, candidate_vars))
+                            except (KeyError, IndexError):
+                                continue
+                    for add_p_name in rule["add_effects"]:
+                        add_p = domain.predicates[add_p_name]
+                        v_idx_list = rule["add_effects"][add_p_name]
+                        if len(v_idx_list) == 1:
+                            v_idx = v_idx_list[0]
+                            relaxed_literals.add(Literal(add_p, [v_idx_2_obj[v_idx]]))
+                except (IndexError, KeyError):
+                    continue  # skip this literal application if indices are invalid
     
     # Clean up relaxed_literals, if any literal contains object not in relaxed_objects, remove it
     cleaned_relaxed_literals = set()

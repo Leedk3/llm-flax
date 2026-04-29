@@ -5,18 +5,11 @@
   "num_seeds": 1,
   "results": [
     {
-      "avg_time": 40.0,
-      "success_rate": 0.0,
-      "avg_plan_length": 0.0,
-      "wall_time_s": 472.0,
-      "config": "manual"
-    },
-    {
-      "avg_time": 1.5739257017771402,
-      "success_rate": 1.0,
-      "avg_plan_length": 17.2,
-      "wall_time_s": 51.1,
-      "config": "llm_qwen2.5-14b"
+      "avg_time": 5.2395806095816875,
+      "success_rate": 0.7333333333333333,
+      "avg_plan_length": 30.045454545454547,
+      "wall_time_s": 343.7,
+      "config": "llm_rules_gemma3-12b"
     }
   ]
 }

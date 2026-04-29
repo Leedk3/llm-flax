@@ -1,0 +1,246 @@
+{
+    "rule0": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ],
+            "upon": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "islight": [
+                0
+            ],
+            "ismoveable": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "islight": [
+                0
+            ],
+            "ismoveable": [
+                0
+            ],
+            "oat": [
+                0,
+                1
+            ],
+            "upon": [
+                0,
+                1
+            ]
+        },
+        "add_effects": {
+            "posempty": [
+                1
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule1": {
+        "pre_compute": {
+            "rat": [
+                0,
+                1
+            ],
+            "upto": [
+                2,
+                3
+            ]
+        },
+        "precond": {
+            "dirisup": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "dirisup": [
+                0
+            ],
+            "rat": [
+                0,
+                1
+            ],
+            "upto": [
+                2,
+                3
+            ]
+        },
+        "add_effects": {},
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule2": {
+        "pre_compute": {
+            "rat": [
+                0,
+                1
+            ],
+            "downto": [
+                2,
+                3
+            ]
+        },
+        "precond": {
+            "dirisdown": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "dirisdown": [
+                0
+            ],
+            "rat": [
+                0,
+                1
+            ],
+            "downto": [
+                2,
+                3
+            ]
+        },
+        "add_effects": {},
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule3": {
+        "pre_compute": {
+            "rat": [
+                0,
+                1
+            ],
+            "leftto": [
+                2,
+                3
+            ]
+        },
+        "precond": {
+            "dirisleft": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "dirisleft": [
+                0
+            ],
+            "rat": [
+                0,
+                1
+            ],
+            "leftto": [
+                2,
+                3
+            ]
+        },
+        "add_effects": {},
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule4": {
+        "pre_compute": {
+            "rat": [
+                0,
+                1
+            ],
+            "rightto": [
+                2,
+                3
+            ]
+        },
+        "precond": {
+            "dirisright": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "dirisright": [
+                0
+            ],
+            "rat": [
+                0,
+                1
+            ],
+            "rightto": [
+                2,
+                3
+            ]
+        },
+        "add_effects": {},
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule5": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ],
+            "upto": [
+                2,
+                3
+            ]
+        },
+        "precond": {},
+        "delete_effects": {},
+        "add_effects": {},
+        "delete_objects": []
+    },
+    "rule6": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ],
+            "downto": [
+                2,
+                3
+            ]
+        },
+        "precond": {},
+        "delete_effects": {},
+        "add_effects": {},
+        "delete_objects": []
+    },
+    "rule7": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ],
+            "leftto": [
+                2,
+                3
+            ]
+        },
+        "precond": {},
+        "delete_effects": {},
+        "add_effects": {},
+        "delete_objects": []
+    },
+    "rule8": {
+        "pre_compute": {
+            "oat": [
+                0,
+                1
+            ],
+            "rightto": [
+                2,
+                3
+            ]
+        },
+        "precond": {},
+        "delete_effects": {},
+        "add_effects": {},
+        "delete_objects": []
+    }
+}

@@ -13,9 +13,12 @@ Output: paper/figures/efficiency_scatter.{pdf,png}
 """
 
 import os
+import json
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import Normalize
@@ -44,27 +47,84 @@ DATA = {
         sr  =[0.900, 0.920, 0.820, 0.900, 0.580, 0.433, 0.767, 0.700],
         time=[ 0.76,  0.84,  1.31,  1.32,  1.27,  1.09,  5.09,  3.75],
     ),
-    "Manual": dict(
+    "Flax (Manual)": dict(
         sr  =[1.000, 0.960, 0.960, 0.960, 0.880, 0.000, 0.967, 0.900],
         time=[ 0.93,  2.00,  2.20,  1.91,  3.97, 30.00,  8.74, 11.90],
     ),
-    "LLM-Flax": dict(
+    # LLM model comparison (Stage 1 rules only, same GNN scorer)
+    "Gemma3-12B": dict(
+        sr  =[1.000, 1.000, 0.960, 0.980, 0.920, 0.733, 0.967, 1.000],
+        time=[ 0.90,  0.95,  1.60,  2.15,  4.53,  5.24,  9.01, 10.98],
+    ),
+    "Qwen2.5-14B": dict(
         sr  =[0.940, 0.900, 0.900, 0.920, 0.800, 1.000, 0.833, 1.000],
         time=[ 0.85,  1.93,  2.02,  1.77,  3.22,  1.57,  8.00,  1.93],
     ),
+    "Llama3.1-8B": dict(
+        sr  =[None, None, None, None, None, None, None, None],
+        time=[None, None, None, None, None, None, None, None],
+    ),
+    "Mistral-7B": dict(
+        sr  =[None, None, None, None, None, None, None, None],
+        time=[None, None, None, None, None, None, None, None],
+    ),
 }
 
+# ── Auto-load llama/mistral results from JSON if available ────────────────────
+_RESULTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             "results")
+_MODEL_SUFFIX = {
+    "Llama3.1-8B": ("llm_rules_llama3.1-8b", "llama3.1-8b"),
+    "Mistral-7B":  ("llm_rules_mistral-7b",  "mistral-7b"),
+}
+_BM_FILES = [
+    ("10E", "ablation_10x10_easy_n50"),
+    ("10M", "ablation_10x10_medium_n50"),
+    ("10H", "ablation_10x10_hard_n50"),
+    ("12M", "ablation_12x12_medium_n50"),
+    ("12H", "ablation_12x12_hard_n50"),
+    ("12X", "ablation_12x12_expert_n30"),
+    ("15M", "ablation_15x15_medium_n30"),
+    ("15H", "ablation_15x15_hard_n30"),
+]
+
+for display_name, (config_key, suffix) in _MODEL_SUFFIX.items():
+    sr_list, time_list = [], []
+    for bm_key, fname in _BM_FILES:
+        path = os.path.join(_RESULTS_DIR, f"{fname}_{suffix}.json")
+        val_sr, val_t = None, None
+        if os.path.exists(path):
+            try:
+                d = json.load(open(path))
+                for r in d.get("results", []):
+                    if r.get("config") == config_key:
+                        val_sr = r.get("success_rate")
+                        val_t  = r.get("avg_time")
+                        break
+            except Exception:
+                pass
+        sr_list.append(val_sr)
+        time_list.append(val_t)
+    DATA[display_name]["sr"]   = sr_list
+    DATA[display_name]["time"] = time_list
+
 COLORS = {
-    "Pure FD":  "#888888",
-    "PLOI":     "#9B59B6",
-    "Manual":   "#4472C4",
-    "LLM-Flax": "#ED7D31",
+    "Pure FD":    "#888888",
+    "PLOI":       "#9B59B6",
+    "Flax (Manual)": "#4472C4",
+    "Gemma3-12B": "#ED7D31",
+    "Qwen2.5-14B":"#FFC000",
+    "Llama3.1-8B":"#70AD47",
+    "Mistral-7B": "#FF6B6B",
 }
 MARKERS = {
-    "Pure FD":  "s",
-    "PLOI":     "^",
-    "Manual":   "D",
-    "LLM-Flax": "o",
+    "Pure FD":    "s",
+    "PLOI":       "^",
+    "Flax (Manual)": "D",
+    "Gemma3-12B": "o",
+    "Qwen2.5-14B":"o",
+    "Llama3.1-8B":"o",
+    "Mistral-7B": "o",
 }
 # Marker size encodes grid size group
 BM_SIZE = [50, 50, 50, 80, 80, 80, 110, 110]  # 10×10, 12×12, 15×15
@@ -83,7 +143,7 @@ def make_bubble():
     x_offsets = np.linspace(-0.30, 0.30, n_cfg)
 
     # Map planning time to bubble area: normalize so max time → area 900
-    all_times = [t for d in DATA.values() for t in d["time"]]
+    all_times = [t for d in DATA.values() for t in d["time"] if t is not None]
     t_max = max(all_times)
     def time_to_area(t):
         return 120 + (t / t_max) * 780   # range 120–900
@@ -94,6 +154,8 @@ def make_bubble():
         for bi in range(n_bm):
             sr = DATA[cfg]["sr"][bi]
             t  = DATA[cfg]["time"][bi]
+            if sr is None or t is None:
+                continue
             x  = bi + x_offsets[ci]
             area = time_to_area(t)
 
@@ -178,27 +240,46 @@ def make_heatmap():
     n_cfg   = len(configs)
     n_bm    = len(BENCHMARKS)
 
-    matrix = np.array([[DATA[c]["sr"][i] for i in range(n_bm)]
-                        for c in configs])
+    # Build numeric matrix; None → NaN for heatmap coloring
+    raw = [[DATA[c]["sr"][i] for i in range(n_bm)] for c in configs]
+    matrix = np.array([[v if v is not None else np.nan for v in row]
+                        for row in raw], dtype=float)
 
-    fig, ax = plt.subplots(figsize=(8.5, 2.8))
+    # Row labels: show avg SR for non-None entries
+    def row_label(cfg):
+        vals = [v for v in DATA[cfg]["sr"] if v is not None]
+        if not vals:
+            return cfg
+        return f"{cfg}  (avg {sum(vals)/len(vals):.3f})"
+
+    row_labels = [row_label(c) for c in configs]
+
+    fig, ax = plt.subplots(figsize=(10, 5.2))
     im = ax.imshow(matrix, cmap="RdYlGn", vmin=0, vmax=1, aspect="auto")
 
     # Cell text
     for i in range(n_cfg):
         for j in range(n_bm):
             v = matrix[i, j]
-            color = "white" if v < 0.25 or v > 0.85 else "#222"
-            txt = f"{v:.2f}" if v > 0 else "FAIL"
-            ax.text(j, i, txt, ha="center", va="center",
-                    fontsize=8.5, color=color, fontweight="bold")
+            if np.isnan(v):
+                ax.text(j, i, "TBD", ha="center", va="center",
+                        fontsize=7.5, color="#888888", fontstyle="italic")
+            else:
+                color = "white" if v < 0.25 or v > 0.85 else "#222"
+                txt = f"{v:.2f}" if v > 0 else "FAIL"
+                ax.text(j, i, txt, ha="center", va="center",
+                        fontsize=8.5, color=color, fontweight="bold")
 
     ax.set_xticks(range(n_bm))
     ax.set_xticklabels(FULL_LABELS, fontsize=8)
     ax.set_yticks(range(n_cfg))
-    ax.set_yticklabels(configs, fontsize=9)
-    ax.set_title("Success Rate across all configurations and benchmarks",
+    ax.set_yticklabels(row_labels, fontsize=8.5)
+    ax.set_title("Success Rate across all configurations and benchmarks\n"
+                 "(LLM models: Stage 1 rules only, same GNN scorer)",
                  fontsize=10, fontweight="bold", pad=8)
+
+    # Horizontal separator between baselines and LLM models
+    ax.axhline(2.5, color="white", lw=2.5, zorder=5)
 
     # Grid lines between cells
     ax.set_xticks(np.arange(-0.5, n_bm, 1), minor=True)
@@ -212,11 +293,11 @@ def make_heatmap():
 
     # Group labels above
     for x_center, label in [(1.0, "10×10"), (4.0, "12×12"), (6.5, "15×15")]:
-        ax.text(x_center, -0.8, label, ha="center", va="center",
+        ax.text(x_center, -0.85, label, ha="center", va="center",
                 fontsize=9, fontweight="bold", color="#444",
                 transform=ax.get_xaxis_transform())
 
-    cbar = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+    cbar = fig.colorbar(im, ax=ax, fraction=0.020, pad=0.02)
     cbar.set_label("SR", fontsize=9)
     cbar.set_ticks([0, 0.25, 0.5, 0.75, 1.0])
     cbar.ax.tick_params(labelsize=8)
