@@ -536,10 +536,11 @@ def world_to_pddl(
     for p in key_packages:
         out.append(line(f"(key-package {p})"))
 
-    # loc-empty
+    # loc-empty (domain predicate name is "ground-free" -- same concept:
+    # no package currently on the ground at this location)
     for l in all_locations:
         if l in loc_empty:
-            out.append(line(f"(loc-empty {l})"))
+            out.append(line(f"(ground-free {l})"))
 
     # locked locations
     for l in locked_locs:

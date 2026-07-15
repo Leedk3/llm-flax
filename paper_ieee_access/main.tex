@@ -1,0 +1,846 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% IEEE Access version of paper/main.tex --- same content, IEEE Access format.
+\documentclass{ieeeaccess}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage[unicode=true,colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{cleveref}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{subcaption}
+\usepackage[inline]{enumitem}
+\usepackage{mathpartir}
+\usepackage{makecell}
+\usepackage{bm}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{nicefrac}
+\usepackage{rotating}
+
+\newcommand{\fref}[1]{Fig.~\ref{#1}}
+\newcommand{\sref}[1]{Section~\ref{#1}}
+\newcommand{\tref}[1]{Table~\ref{#1}}
+\newcommand{\myparagraph}[1]{\noindent\textbf{#1}~}
+\newcommand{\eref}[1]{(\ref{#1})}
+\newcommand{\method}{LLM-Flax\xspace}
+\newcommand{\baseline}{Flax\xspace}
+\newcommand{\fullmethod}{Full LLM-Flax\xspace}
+
+\history{Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.}
+\doi{10.1109/ACCESS.2026.DOI}
+
+\title{LLM-Flax: Reducing Domain Engineering in Neuro-Symbolic Task Planning with Large Language Models}
+
+\author{%
+\uppercase{Seongmin Kim}\authorrefmark{1} and
+\uppercase{Daegyu Lee}\authorrefmark{2}%
+}
+
+\address[1]{Department of Physical AI Engineering, Jeonbuk National University (JBNU), Jeonju, Republic of Korea}
+\address[2]{Department of Advanced Defense Technology and Industry, Jeonbuk National University (JBNU), Jeonju, Republic of Korea}
+
+\corresp{Corresponding author: Daegyu Lee (e-mail: lee.dk@jbnu.ac.kr).}
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% In ieeeaccess.cls, abstract/keywords must be declared BEFORE \maketitle:
+% they are stored and rendered as part of the title page block.
+\begin{abstract}
+Adapting a neuro-symbolic task planner to a new domain can require hand-authored symbolic rules and solved training instances for a learned object scorer.
+This paper presents \method, which applies a locally hosted large language model (LLM) to three parts of the Flax planning pipeline: offline generation of relaxation and complementary rules, budget-gated recovery after a planning timeout, and zero-shot object scoring in place of a trained Graph Neural Network (GNN).
+Rule outputs are constrained by a JSON schema and checked through validation and corrective prompting before use.
+Across eight MazeNamo benchmarks, the Stage~1 configuration, which retains the trained GNN and replaces only the manual rules, obtains a mean success rate (SR) of 0.941, compared with 0.912 for manually authored rules.
+A controlled rule-set ablation changes SR by $+0.033$ (one additional solution out of 30) and incurs a 32\% increase in planning time relative to the manual configuration.
+In a cross-domain probe using an identical untrained scorer for both rule sources, the generated rules match or exceed the manual rules on SokomindPlus and DifficultLogistics; the latter result is measured after correcting a planner-loop error that affected both configurations.
+Stage~2 preserves SR on the two evaluated benchmarks but provides no improvement, whereas Stage~3 obtains SR~0.533 on $12{\times}12$ Hard and SR~0.000 on $15{\times}15$ Hard without GNN training data.
+Diagnostic logs attribute the Stage~3 degradation to incomplete single-turn score generation, which leaves 70--99\% of objects at the default score.
+Within the evaluated pipeline, schema-constrained rule generation is the only LLM use that matches the corresponding Flax component; runtime recovery and zero-shot object scoring remain preliminary.
+\end{abstract}
+
+\begin{keywords}
+Task Planning, Large Language Models, Neuro-Symbolic AI, PDDL, Automated Rule Generation
+\end{keywords}
+
+\titlepgskip=-15pt
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\IEEEPARstart{T}{ask} planning in complex, object-rich environments requires long-horizon reasoning over large state spaces, making classical symbolic planners computationally expensive~\cite{helmert2006fast,edelkamp2004pddl2}.
+Neuro-symbolic methods reduce this search burden by using learned relevance estimates to select objects before invoking a symbolic solver~\cite{silver2021planning,chen2024graph}.
+
+Flax~\cite{du2026fast} follows this design by combining a Graph Neural Network (GNN) object scorer with two forms of domain-specific symbolic knowledge: \emph{relaxation rules}, which remove selected objects to construct a simpler problem, and \emph{complementary rules}, which restore objects connected by spatial or structural relations.
+The original study reports that these components reduce planning time on object-rich maze tasks.
+
+Adapting Flax to another domain nevertheless introduces two distinct costs.
+A domain expert must specify both rule types, and the GNN scorer requires a domain-specific set of solved planning instances.
+The first cost concerns symbolic knowledge engineering; the second concerns data generation and model training.
+
+Large language models (LLMs) can produce structured outputs from formal specifications and may therefore reduce part of this adaptation cost~\cite{brown2020language,wei2022chain}.
+We examine three uses of an LLM within Flax, separating offline rule generation from two forms of runtime guidance.
+
+The resulting framework, \method, contains three stages:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Stage 1 --- LLM Rule Generation:} The LLM maps a PDDL domain definition to relaxation and complementary rules. Schema validation and corrective prompting reject malformed outputs before planning.
+    \item \textbf{Stage 2 --- LLM Failure Recovery:} After a timeout, the LLM selects excluded objects for one bounded replanning attempt. A feasibility check reserves time for the subsequent relaxation step.
+    \item \textbf{Stage 3 --- LLM Zero-Shot Object Scoring:} The LLM assigns object-relevance scores from the current problem state and goal, replacing the domain-trained GNN for this exploratory configuration.
+\end{itemize}
+Stage~1 addresses rule authoring while retaining the trained GNN. The combined \fullmethod configuration removes both manual rules and GNN training data, but still requires the PDDL domain and problem descriptions used by any symbolic planner.
+Our experiments evaluate the stages separately because they have different costs and levels of empirical support.
+
+
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Neuro-Symbolic Task Planning}
+Classical symbolic planners such as Fast Downward~\cite{helmert2006fast} and FF~\cite{hoffmann2001ff} search over formal state and action models, but grounding and search can become expensive as problem size grows.
+STRIPS~\cite{fikes1971strips} established the foundational formalism, while PDDLStream~\cite{garrett2020pddlstream} extended it to continuous domains via blackbox samplers.
+Neuro-symbolic approaches address scalability by coupling neural components with symbolic solvers.
+PLOI~\cite{silver2021planning} introduced GNN-based object filtering, reducing the grounded state space while preserving validity through iterative threshold relaxation.
+Subsequent work explored neuro-symbolic skills~\cite{silver2022neurosymbolic}, relational transition models~\cite{chitnis2022learning}, predicate invention~\cite{silver2023predicate}, and efficient abstract planning models~\cite{kumar2023learning}.
+LogiCity~\cite{li2024logicity} further advances neuro-symbolic AI through large-scale abstract urban simulation.
+
+Our work directly extends Flax~\cite{du2026fast}, which combines a GNN object scorer with hand-crafted relaxation and complementary rules for object-rich PDDL instances.
+\method retains its symbolic planning loop and studies the rule-authoring and training-data costs as separate problems.
+
+\subsection{LLMs for Planning and Formal Reasoning}
+Prior work has used LLMs as planners, translators, and reasoning components.
+SayCan~\cite{ahn2022can} grounds language-model outputs in robot affordances, while LLM+P~\cite{liu2023llm+} translates natural-language tasks into PDDL problems for an external solver.
+PDDLego~\cite{zhang2023pddl} and Guan et al.~\cite{guan2023leveraging} use LLMs to construct or repair PDDL representations, whereas Tree-of-Thoughts~\cite{yao2023tree} and chain-of-thought prompting~\cite{wei2022chain} use language models to organize the reasoning process itself.
+
+Stage~1 of \method instead produces a compact rule configuration once per domain and leaves plan generation to Fast Downward within the Flax loop.
+Stages~2 and~3 query the LLM at runtime, but their outputs are restricted to object names or scalar relevance scores rather than actions or plans.
+The Stage~1 validator limits structural errors before a rule file is reused across task instances; semantic errors remain possible and are evaluated separately in \sref{sec:quality}.
+
+\subsection{Automated Knowledge Engineering}
+Automated PDDL domain acquisition~\cite{cresswell2013acquiring} and rule learning~\cite{law2019inductive} are established problems in AI planning.
+In contrast to learning a complete domain model from execution traces, Stage~1 maps an existing PDDL domain to the narrower JSON rule schema required by Flax~\cite{du2026fast}.
+
+
+\section{Background}
+\label{sec:background}
+
+\subsection{PDDL Planning}
+A PDDL planning problem $\Pi = \langle \mathcal{D}, \tau \rangle$ consists of a domain $\mathcal{D} = \langle \mathcal{P}, \mathcal{A} \rangle$ defining lifted predicates and actions, and a task instance $\tau = \langle \mathcal{O}, I, G \rangle$ specifying objects, initial state, and goal.
+A plan is a sequence of grounded actions mapping $I$ to a state satisfying $G$.
+
+\subsection{Neuro-Symbolic Planning with Rules}
+\label{sec:flax_bg}
+The baseline planner we extend, Flax~\cite{du2026fast}, operates in three steps during inference:
+
+\myparagraph{Step 1 (GNN Pruning)}
+A GNN assigns importance scores $s(o) \in [0,1]$ to each object. Starting from threshold $q = 0.81$ with decay $\gamma = 0.9$, the planner iteratively lowers $q$ and attempts to plan on the pruned object set $\mathcal{O}_1 = \{o \mid s(o) \geq q\}$ until success or timeout.
+
+\myparagraph{Step 2 (Relaxation)}
+If Step 1 times out, \emph{relaxation rules} remove certain objects from the full problem to create a simplified ``rough'' version. A rough plan $\mu_r$ is obtained quickly; objects in $\mu_r$ are merged back: $\mathcal{O}_2 = \mathcal{O}_1 \cup \{o \mid o \in \mu_r\}$.
+
+\myparagraph{Step 3 (Complementary Expansion)}
+\emph{Complementary rules} restore object pairs connected by structural constraints, yielding $\mathcal{O}_3 = \textsc{Comp}(\mathcal{O}_2)$, on which the final plan is computed.
+
+Both rule types are stored as structured JSON configurations (see \sref{sec:method}) and loaded at runtime.
+In the original system, these files are authored manually per domain.
+
+
+\section{Methodology}
+\label{sec:method}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/architecture.pdf}
+  \caption{Architecture of \method. \emph{Top}: Stage~1 generates relaxation and complementary rules once per domain and validates the resulting JSON. \emph{Bottom}: the Flax planning loop performs threshold-decay pruning, rule-based relaxation, and complementary expansion. Stage~2 optionally inserts a feasibility-gated recovery call after a pruning timeout; Stage~3 substitutes zero-shot LLM scores for the GNN scores. Stage~1 removes manual rule authoring, whereas Stage~3 removes GNN training.}
+  \label{fig:architecture}
+\end{figure*}
+
+\subsection{Rule Format}
+\label{sec:format}
+
+\myparagraph{Relaxation rules}
+Each rule specifies: (i) \texttt{pre\_compute}---a binary predicate used to look up a related object (e.g., \texttt{oAt} maps an obstacle to its position); (ii) \texttt{precond}---unary predicate(s) identifying removable objects; (iii) \texttt{delete\_objects}---argument index of the object to remove; (iv) \texttt{delete\_effects}---literals to retract; (v) \texttt{add\_effects}---literals to assert after removal.
+All values are integer argument indices (0-based).
+
+The manually crafted relaxation rule for MazeNamo reads:
+\begin{small}
+\begin{verbatim}
+{"rule0": {"pre_compute": {"oat":[0,1]},
+  "precond": {"islight":[0]},
+  "delete_objects": [0],
+  "delete_effects": {"islight":[0],
+    "ismoveable":[0], "oat":[0,1]},
+  "add_effects": {"posempty":[1]}}}
+\end{verbatim}
+\end{small}
+
+Semantically: \emph{for any light obstacle \texttt{o} at position \texttt{p}, remove \texttt{o} from the problem and mark \texttt{p} as empty.}
+
+\myparagraph{Complementary rules}
+Each entry maps a binary predicate name to paired \texttt{cond}/\allowbreak\texttt{cmpl} index lists.
+When an object at index \texttt{cond[i]} is included, the object at index \texttt{cmpl[i]} is also included.
+The manually crafted complementary rule is simply \texttt{\{"oat": \{"cond":[[0],[1]], "cmpl":[[1],[0]]\}\}}.
+
+\subsection{LLM Rule Generation}
+\label{sec:generation}
+
+We use Gemma3-12B~\cite{gemma3_2025}, hosted locally through Ollama's REST API, as the primary model.
+Generation uses temperature~0 and a 16,384-token context window.
+The model is queried twice per domain, once for each rule type.
+
+\myparagraph{Prompt design}
+Each prompt defines the rule semantics and JSON schema, states that argument indices must be integers, and provides one valid example and one counterexample with string-valued indices.
+The complete PDDL domain definition is included so that predicate names and arities are available to the model.
+
+\myparagraph{Validation and self-correction}
+LLM outputs are validated by \textsc{ValidateRules}, which checks: (i) all required keys are present; (ii) all index fields contain lists of integers; (iii) all predicate names exist in the domain (parsed from the PDDL \texttt{:predicates} block); and (iv) no duplicate rules appear.
+If validation fails, the error messages are fed back to the LLM as a correction turn, with up to $K=3$ total attempts.
+
+\myparagraph{Post-processing}
+Two deterministic safeguards are applied before the files are written:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \emph{Deduplication:} rules with identical JSON content (modulo key name) are merged.
+    \item \emph{Predicate filtering:} rules that reference predicates absent from the domain are removed.
+\end{itemize}
+The accepted rules are then saved as JSON files and loaded by the planner.
+
+Algorithm~\ref{alg:gen} summarizes Stage~1.
+
+\subsection{Stage 2: LLM-Guided Failure Recovery}
+\label{sec:stage2}
+
+Step~1 uses threshold decay to expand the selected object set after an unsuccessful planning attempt.
+This procedure does not distinguish among the excluded objects.
+
+We introduce \textsc{LLMRecoveryGuidance}, inserted between a Step~1 timeout and the Step~2 relaxation fallback.
+Given the PDDL state, goal, included objects $\mathcal{O}_{cur}$, and excluded candidates $\mathcal{O}_{exc}$, the LLM selects excluded objects that may be needed for a plan.
+The LLM returns a JSON list of object names; the planner adds them and retries.
+If the retry succeeds the plan is returned; otherwise the pipeline falls through to Step~2 unchanged.
+
+\myparagraph{Budget policy}
+LLM API calls impose a latency cost (${\approx}3$--$5$\,s) that must be accounted for in per-problem timeout budgets.
+We adopt a three-part policy (see \sref{app:budget} for its budget analysis):
+\begin{itemize}[noitemsep,topsep=2pt]
+  \item \emph{Feasibility check}: skip recovery if the remaining time before the Step~2 deadline is $< t_\text{LLM} + t_\text{replan,min} + t_\text{step2,min}$ (set conservatively to 11\,s).
+  \item \emph{Recovery cap}: limit the recovery replan to $15\%$ of total timeout.
+  \item \emph{Step~2 guarantee}: Step~2 always receives at least $5$\,s regardless of recovery outcome.
+\end{itemize}
+Under the evaluated timeout settings, this policy skips recovery for the 30\,s case and permits a short recovery attempt for the 40\,s case.
+
+\subsection{Stage 3: LLM Zero-Shot Object Scoring}
+\label{sec:stage3}
+
+The evaluated GNN scorer is trained on 200 solved problems from the target domain.
+Stage~3 removes this training requirement by replacing the GNN with \textsc{LLMObjectGuidance}, which implements the same \texttt{score\_object(obj, state)} interface.
+
+On the first call for a given state, the LLM receives the goal, the list of all objects with types, and up to 80 state facts, and returns a JSON dictionary mapping each object name to a score in $[0, 1]$.
+Scores are cached so only one LLM call is made per planning problem.
+The \texttt{train()} method performs no data collection or parameter updates.
+If the call fails, or if an object is absent from the returned dictionary, its score defaults to 0.5.
+
+\myparagraph{Full LLM-Flax}
+\fullmethod combines the three stages: Stage~1 generates rules from the domain definition, and Stages~2 and~3 provide runtime recovery and object scores.
+This configuration uses neither hand-written rules nor domain-specific GNN training data.
+
+\begin{algorithm}[t]
+\caption{\method Rule Generation (Stage 1)}
+\label{alg:gen}
+\SetKwInOut{Input}{Input}\SetKwInOut{Output}{Output}
+\Input{PDDL domain file $\mathcal{D}$; LLM $\mathcal{M}$; max retries $K$}
+\Output{Relaxation rules $R_{relx}$; Complementary rules $R_{cmpl}$}
+\BlankLine
+$\mathcal{P}_{known} \leftarrow \textsc{ParsePredicates}(\mathcal{D})$\;
+\For{$\text{rule\_type} \in \{\text{relaxation},\, \text{complementary}\}$}{
+    $\text{prompt} \leftarrow \textsc{BuildPrompt}(\mathcal{D},\, \text{rule\_type})$\;
+    $\text{messages} \leftarrow [\text{system}, \text{prompt}]$\;
+    \For{$k = 1$ \KwTo $K$}{
+        $\text{raw} \leftarrow \mathcal{M}(\text{messages})$\;
+        $R \leftarrow \textsc{ParseJSON}(\text{raw})$\;
+        $\text{errors} \leftarrow \textsc{ValidateRules}(R,\, \mathcal{P}_{known})$\;
+        \lIf{$\text{errors} = \emptyset$}{\textbf{break}}
+        $\text{messages}.\text{append}(\text{raw},\, \text{errors})$\;
+    }
+    $R \leftarrow \textsc{Dedup}(R)$\;
+    $R \leftarrow \textsc{FilterUnknown}(R,\, \mathcal{P}_{known})$\;
+}
+\Return $R_{relx},\, R_{cmpl}$\;
+\end{algorithm}
+
+
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Setup}
+
+\myparagraph{Domain}
+We evaluate on the MazeNamo benchmark~\cite{silver2021planning}: a grid-based maze navigation task where a robot must reach a goal while manipulating heavy boxes (push-only) and light boxes (push or pick-and-place).
+We test on $10{\times}10$ (easy, medium, hard; $n{=}50$), $12{\times}12$ (medium, hard; $n{=}50$; expert $n{=}30$), and $15{\times}15$ (medium, hard; $n{=}30$) grids, using a GNN model trained on 200 problems.
+All reported runs use one random seed; SR differences are therefore presented as descriptive results rather than statistical significance claims.
+
+\myparagraph{Configurations}
+Stage~1 is evaluated on all eight MazeNamo benchmarks. Stages~2 and~3 are evaluated on two selected benchmarks: Stage~2 where Step~1 timeouts occur frequently, and Stage~3 at two larger problem settings.
+Stage~1 compares two rule configurations, holding all other components fixed:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Manual}: Hand-crafted rules (1 relaxation, 1 complementary). Timeouts: 10\,s / 30\,s / 40\,s for $10{\times}10$ / $12{\times}12$ / $15{\times}15$.
+    \item \textbf{\method}: LLM-generated rules (1 relaxation after dedup, 7 complementary). Same timeouts.
+\end{itemize}
+Stage~2 adds a third configuration, \textbf{\method + Recovery}, which uses \textsc{LLMRecoveryGuidance} with the feasibility-gated budget policy described in \sref{sec:stage2}.
+Stage~3 evaluates \fullmethod---replacing the GNN with \textsc{LLMObjectGuidance} (zero-shot)---on two larger problem settings.
+\sref{sec:crossdomain_results} evaluates Stage~1 on DifficultLogistics and SokomindPlus with the same fixed, untrained scorer for both rule sources. This comparison is designed as a rule-transfer probe and is not directly comparable with the GNN-guided MazeNamo results.
+
+\myparagraph{Metrics}
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item \textbf{Success Rate (SR):} fraction of problems solved within the time budget.
+    \item \textbf{Average Planning Time:} mean time over successful problems.
+    \item \textbf{Average Plan Length:} mean number of actions in found plans.
+\end{itemize}
+Unless stated otherwise, planning time covers the complete planner call and therefore includes runtime LLM latency in Stages~2 and~3.
+
+\subsection{Results}
+\label{sec:results}
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/sr_scale.pdf}
+    \caption{Success rate of manual and LLM-generated rules across the eight MazeNamo benchmarks. Both configurations use the same trained GNN scorer and planning budgets. Shading marks benchmarks on which the observed SR is higher with LLM-generated rules.}
+    \label{fig:sr_scale}
+\end{figure*}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/pipeline_10x10_hard_16.pdf}
+  \caption{Illustrative trace using LLM-generated rules and precomputed zero-shot LLM scores on a $10{\times}10$ hard MazeNamo problem (problem~16, 163 objects).
+  (a)~Full problem with all objects.
+  (b)~Zero-shot relevance scores used for this trace.
+  (c)~After Step~1 threshold-based pruning: 21 objects excluded (grey), 142 retained at threshold 0.478.
+  (d)~Step~2 relaxed sub-problem: light boxes removed via relaxation rules, yielding a rough plan.
+  (e)~Step~3 complementary expansion: object pairs with structural constraints restored.
+  (f)~Final plan of length 39. The reported 0.8\,s is planner time after score generation and is included for visualization only, not as an end-to-end Stage~3 result.}
+  \label{fig:pipeline}
+\end{figure*}
+
+\tref{tab:main} reports the Stage~1 comparison, and \fref{fig:sr_scale} summarizes its SR values. \fref{fig:pipeline} provides a separate qualitative trace of the zero-shot scoring interface.
+
+\begin{table}[t]
+    \centering
+    \caption{\baseline (manual rules) vs.\ \method (LLM-generated rules) within the Flax pipeline. SR = success rate ($\uparrow$); Time = avg.\ planning time over successful problems in seconds ($\downarrow$); Len = avg.\ plan length. Bold marks higher SR and lower time within each pair.}
+    \label{tab:main}
+    \small
+    \setlength{\tabcolsep}{3.5pt}
+    \renewcommand{\arraystretch}{1.05}
+    \begin{tabular}{llcccc}
+        \toprule
+        \textbf{Task} & \textbf{Rules} & \textbf{SR} & \textbf{$\Delta$SR} & \textbf{Time (s)} & \textbf{Len} \\
+        \midrule
+        \multirow{2}{*}{10$\times$10 Easy}
+            & Manual  & \textbf{1.000} & \multirow{2}{*}{$\pm$0.000} & 0.932 & 17.4 \\
+            & \method & \textbf{1.000} &  & \textbf{0.898} & 17.1 \\
+        \midrule
+        \multirow{2}{*}{10$\times$10 Medium}
+            & Manual  & 0.960 & \multirow{2}{*}{$+$0.040} & 1.997 & 19.8 \\
+            & \method & \textbf{1.000} &  & \textbf{0.949} & 16.6 \\
+        \midrule
+        \multirow{2}{*}{10$\times$10 Hard}
+            & Manual  & \textbf{0.960} & \multirow{2}{*}{$\pm$0.000} & 2.200 & 19.8 \\
+            & \method & \textbf{0.960} &  & \textbf{1.600} & 19.3 \\
+        \midrule
+        \multirow{2}{*}{12$\times$12 Medium}
+            & Manual  & 0.960 & \multirow{2}{*}{$+$0.020} & \textbf{1.914} & 22.1 \\
+            & \method & \textbf{0.980} &  & 2.151 & 22.3 \\
+        \midrule
+        \multirow{2}{*}{12$\times$12 Hard}
+            & Manual  & 0.880 & \multirow{2}{*}{$+$0.040} & \textbf{3.965} & 29.8 \\
+            & \method & \textbf{0.920} &  & 4.529 & 29.2 \\
+        \midrule
+        \multirow{2}{*}{12$\times$12 Expert}
+            & Manual  & 0.667 & \multirow{2}{*}{$+$0.033} & \textbf{4.528} & 31.5 \\
+            & \method & \textbf{0.700} &  & 5.982 & 29.3 \\
+        \midrule
+        \multirow{2}{*}{15$\times$15 Medium}
+            & Manual  & \textbf{0.967} & \multirow{2}{*}{$\pm$0.000} & \textbf{8.740} & 30.9 \\
+            & \method & \textbf{0.967} &  & 9.007 & 31.0 \\
+        \midrule
+        \multirow{2}{*}{15$\times$15 Hard}
+            & Manual  & 0.900 & \multirow{2}{*}{$+$0.100} & 11.901 & 36.2 \\
+            & \method & \textbf{1.000} &  & \textbf{10.979} & 36.0 \\
+        \midrule
+        \multirow{2}{*}{Average (8 tasks)}
+            & Manual  & 0.912 & \multirow{2}{*}{$+$0.029} & 4.522 & 25.9 \\
+            & \method & \textbf{0.941} &  & \textbf{4.512} & 25.1 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The observed SR with LLM-generated rules is equal to or higher than that with manual rules on each benchmark.
+The two configurations tie on three tasks; on four others, the differences range from $+0.020$ to $+0.040$.
+The largest difference occurs on $15{\times}15$ Hard, where SR increases from 0.900 to 1.000.
+On $12{\times}12$ Expert, the corresponding values are 0.667 and 0.700; \sref{sec:quality} examines this one-problem difference under controlled rule sets.
+The unweighted mean across the eight tasks is 0.941 for LLM-generated rules and 0.912 for manual rules.
+\fref{fig:sr_heatmap} provides a compact visual summary of the full result matrix.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=1.0\textwidth]{figures/sr_heatmap_edit.pdf}
+  \caption{SR heatmap for Pure FD, PLOI, manual Flax, and four Stage~1 LLM rule generators across eight MazeNamo benchmarks. All LLM rows use the same trained GNN scorer; only the generated rules differ. The $12{\times}12$ Expert entries for Qwen2.5-14B, Llama3.1-8B, and Mistral-7B come from earlier runs and are not part of the controlled comparison in \sref{sec:quality}.}
+  \label{fig:sr_heatmap}
+\end{figure*}
+
+\subsection{Rule Quality Analysis}
+\label{sec:quality}
+
+\myparagraph{Relaxation rules}
+Gemma3-12B generates the same MazeNamo relaxation rule as the manual configuration (\tref{tab:rule_diff}).
+The \texttt{pre\_compute}, \texttt{precond}, \texttt{delete\_objects}, \texttt{delete\_effects}, and \texttt{add\_effects} fields are identical, so differences in the main comparison arise from the complementary rule sets or run-to-run planning behavior.
+Qwen2.5-14B adds a \texttt{clear:[0]} precondition that prevents removal of stacked light boxes. Llama3.1-8B and Mistral-7B produce additional rules with invalid indices, unknown predicates, or overly broad effects.
+
+\begin{table}[t]
+    \centering
+    \caption{Relaxation rule preconditions generated by each model vs.\ the manual baseline.
+    Gemma3-12B (the primary model) produces an exact match; others deviate.}
+    \label{tab:rule_diff}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Model} & \textbf{\texttt{precond}} & \textbf{Notes} \\
+        \midrule
+        Manual (baseline)  & \texttt{\{islight:[0]\}}                 & Reference \\
+        Gemma3-12B         & \texttt{\{islight:[0]\}}                 & Exact match \\
+        Qwen2.5-14B        & \texttt{\{islight:[0], clear:[0]\}}      & Over-conservative \\
+        Llama3.1-8B        & \texttt{\{islight:[0], ismoveable:[0]\}} & + 8 spurious rules \\
+        Mistral-7B         & \texttt{\{islight:[0]\}}                 & Over-specified effects \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+\myparagraph{Complementary rules}
+Gemma3-12B generates seven complementary rules (\texttt{upon}, \texttt{oat}, \texttt{rat}, \texttt{upto}, \texttt{downto}, \texttt{leftto}, \texttt{rightto}), whereas the manual configuration contains only \texttt{oat}.
+Because rule count and predicate coverage change together, the main comparison alone cannot attribute the SR difference to either factor.
+We therefore evaluate four nested complementary-rule sets on $12{\times}12$ Expert ($n{=}30$), using the same relaxation rule, GNN checkpoint, and problem set (\tref{tab:rulecount}).
+
+\begin{table}[t]
+    \centering
+    \caption{Rule-count ablation on $12{\times}12$ Expert ($n{=}30$, $T{=}30$\,s), holding the relaxation rule fixed. \texttt{oat}-only matches Manual's complementary rule count and content.}
+    \label{tab:rulecount}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.1}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Complementary rules} & \textbf{Count} & \textbf{SR} & \textbf{Time (s)} \\
+        \midrule
+        Manual (\texttt{oat})                          & 1 & 0.667          & 4.528 \\
+        LLM, \texttt{oat}-only                         & 1 & 0.667          & 4.403 \\
+        LLM, \texttt{oat}+\texttt{rat}+\texttt{upon}    & 3 & 0.667          & \textbf{4.300} \\
+        LLM, full (+4 direction rules)                 & 7 & \textbf{0.700} & 5.982 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The count- and content-matched \texttt{oat}-only configuration reproduces the manual SR of 0.667. Adding \texttt{rat} and \texttt{upon} does not change SR.
+The full set, which adds four directional relations, solves one additional problem out of 30 (SR 0.700) and increases mean planning time by 32\% relative to the manual configuration.
+This experiment bounds the observed benefit on this benchmark as small. Because the final condition adds four specific predicates at once, it does not separate aggregate rule count from the contribution of any individual directional relation.
+
+\subsection{Stage 2: LLM-Guided Failure Recovery}
+\label{sec:results_stage2}
+
+\tref{tab:stage2} reports results on the two benchmarks where GNN Step~1 most frequently exceeds its $\nicefrac{T}{6}$ sub-budget: $12{\times}12$ Hard (timeout $T{=}30$\,s) and $15{\times}15$ Medium ($T{=}40$\,s).
+
+\begin{table}[t]
+    \centering
+    \caption{Stage 2 ablation: LLM-generated rules with and without LLM failure recovery. SR = success rate; Time = avg.\ planning time over successful problems (s). Bold = best per row group.}
+    \label{tab:stage2}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.1}
+    \begin{tabular}{llcc}
+        \toprule
+        \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} \\
+        \midrule
+        \multirow{3}{*}{12$\times$12 Hard}
+            & Manual              & 0.880          & \textbf{3.965} \\
+            & \method             & \textbf{0.920} & 4.529 \\
+            & \method + Recovery  & \textbf{0.920} & 4.543 \\
+        \midrule
+        \multirow{3}{*}{15$\times$15 Medium}
+            & Manual              & \textbf{0.967} & \textbf{8.740} \\
+            & \method             & \textbf{0.967} & 9.007 \\
+            & \method + Recovery  & \textbf{0.967} & 9.153 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Recovery does not change SR on either benchmark and adds 0.014--0.146\,s to mean planning time.
+For the 30\,s setting, the estimated time before Step~2 is below the 11\,s feasibility threshold, so the LLM call is skipped. For the 40\,s setting, recovery is attempted, but it does not solve any problem that the subsequent relaxation path would otherwise miss.
+\sref{app:budget} analyzes how the feasibility condition protects the relaxation budget.
+
+\subsection{Validation Safeguards}
+\label{sec:ablation_pipeline}
+
+The model comparison exposed several recurring output errors: string-valued indices, repeated rules, unknown predicate names such as \texttt{ismoveempty}, and indices outside a predicate's arity.
+The validator rejects malformed schemas, non-integer index lists, unknown predicates, and duplicate relaxation rules. Error messages are returned to the model for at most two correction turns, after which generation fails rather than passing an unchecked file to the planner.
+Gemma3-12B produced the accepted MazeNamo rules on its first attempt. The deterministic deduplication and predicate-filtering passes remain as safeguards for accepted outputs and normalized complementary-rule keys.
+
+\subsection{LLM Model Comparison (Stage 1)}
+\label{sec:model_comparison}
+
+To examine model sensitivity, we generate MazeNamo rules with four open-source LLMs served through Ollama.
+\tref{tab:model_comparison} reports the resulting SR values with the GNN scorer held fixed.
+
+\begin{table}[t]
+    \centering
+    \caption{SR across 8 MazeNamo benchmarks for four LLMs (Stage 1 rules only, same GNN scorer).
+    Avg = simple mean across all 8 tasks. Bold = best per column.}
+    \label{tab:model_comparison}
+    \small
+    \setlength{\tabcolsep}{2.8pt}
+    \renewcommand{\arraystretch}{1.05}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{lccccccccr}
+        \toprule
+        \textbf{Model} & \textbf{10E} & \textbf{10M} & \textbf{10H} & \textbf{12M} & \textbf{12H} & \textbf{12X} & \textbf{15M} & \textbf{15H} & \textbf{Avg} \\
+        \midrule
+        \baseline (manual)    & 1.000 & 0.960 & 0.960 & 0.960 & 0.880 & 0.667 & 0.967 & 0.900 & 0.912 \\
+        \midrule
+        Gemma3-12B  & \textbf{1.000} & \textbf{1.000} & \textbf{0.960} & \textbf{0.980} & \textbf{0.920} & 0.700 & \textbf{0.967} & \textbf{1.000} & \textbf{0.941} \\
+        Qwen2.5-14B & 0.940 & 0.900 & 0.900 & 0.920 & 0.800 & \textbf{1.000}$^\ddagger$ & 0.833 & \textbf{1.000} & 0.912 \\
+        Llama3.1-8B & 0.980 & \textbf{1.000} & 0.640 & 0.960 & 0.460 & 0.167$^\ddagger$ & 0.900 & 0.933 & 0.755$^\ddagger$ \\
+        Mistral-7B  & 0.820 & 0.840 & 0.640 & 0.820 & 0.560 & 0.433$^\ddagger$ & 0.600 & 0.567 & 0.660$^\ddagger$ \\
+        \bottomrule
+    \end{tabular}%
+    }
+    \vspace{2pt}
+    {\footnotesize $^\ddagger$Entries marked with this symbol use earlier 12X measurements and are not directly comparable to the controlled \baseline/Gemma3-12B 12X runs.}
+\end{table}
+
+For the main comparison, we re-ran the $12{\times}12$ Expert (12X) \baseline and Gemma3-12B configurations under the same code, GNN checkpoint, and test-problem set.
+This controlled run gives \baseline SR~0.667 and Gemma3-12B SR~0.700.
+\sref{sec:quality} reports the rule-count ablation using these same controlled conditions.
+The Qwen2.5-14B, Llama3.1-8B, and Mistral-7B 12X entries come from earlier measurements and are marked $^\ddagger$. Averages containing these entries are descriptive and are not used for a controlled ranking.
+
+Gemma3-12B has the highest observed mean SR (0.941) and produces the manual relaxation rule on its first attempt.
+The Llama3.1-8B configuration contains multiple inappropriate relaxation relations, while the Mistral-7B rules remove heavy as well as light obstacles and alter the intended relaxed state.
+Across these four models, performance is not monotonic in parameter count; the observed differences instead coincide with differences in generated rule semantics.
+
+\subsection{Rule Transfer to Additional Domains}
+\label{sec:crossdomain_results}
+
+We evaluate Stage~1 on two additional PDDL domains in the Flax codebase. \textbf{SokomindPlus} is a Sokoban-style box-pushing domain that shares several relations with MazeNamo, whereas \textbf{DifficultLogistics} models trucks, airplanes, packages, locked locations, and stacking.
+Both domains ship with hand-authored manual rules and 200 training problems, but neither has a domain-specific GNN trained for it.
+Training such a scorer would require first solving the domain-specific training set; in our SokomindPlus runs, individual optimal-planning calls required 60--300\,s.
+We therefore use the same seeded, untrained uniform-random scorer (\texttt{no-guidance}) with both manual and generated rules.
+This isolates the rule source within each domain, but the resulting values are neither directly comparable with the GNN-guided MazeNamo results nor evidence for scorer transfer.
+
+Before the experiments, we corrected \textsc{ParsePredicates} so that hyphenated names such as \texttt{switch-for} and \texttt{key-package} are parsed without truncation.
+
+DifficultLogistics also revealed a shared planner-loop error: when Fast Downward proved a relaxed sub-problem unsolvable, both rule configurations terminated instead of continuing to complementary expansion.
+The corrected loop treats this case as a relaxation that contributes no additional objects and proceeds with the current object set. The same correction is applied to manual and generated rules.
+
+\begin{table}[t]
+    \centering
+    \caption{Rule-transfer probe with Pure FD, manual rules, and generated rules. Both rule-guided configurations use the same seeded no-guidance scorer. SokomindPlus: $n{=}20$, $15{\times}15$ split, $T{=}30$\,s. DifficultLogistics: $n{=}15$, $T{=}90$\,s, measured after the shared relaxation-fallback correction.}
+    \label{tab:crossdomain}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.1}
+    \begin{tabular}{llcc}
+        \toprule
+        \textbf{Domain} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} \\
+        \midrule
+        \multirow{3}{*}{SokomindPlus}
+            & Pure FD  & \textbf{1.000} & 15.00 \\
+            & Manual   & 0.750          & \textbf{10.67} \\
+            & \method  & \textbf{1.000} & 16.96 \\
+        \midrule
+        \multirow{3}{*}{DifficultLogistics}
+            & Pure FD  & \textbf{1.000} & \textbf{41.38} \\
+            & Manual   & 0.667          & 48.76 \\
+            & \method  & 0.800          & 45.83 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\myparagraph{SokomindPlus: Stage~1 transfer}
+Gemma3-12B produces the same relaxation rule as the manual configuration and eight complementary rules instead of one.
+Generated rules obtain SR~1.000, compared with 0.750 for manual rules; Pure FD also obtains SR~1.000 and has lower mean planning time than the generated-rule configuration.
+
+\myparagraph{DifficultLogistics}
+After the shared planner-loop correction, generated rules obtain SR~0.800 and manual rules obtain SR~0.667.
+Pure FD remains the strongest configuration, with SR~1.000 and the lowest mean time among successful runs. The result therefore supports transfer of the rule-generation procedure to a structurally different domain, but does not show an advantage over unguided symbolic search in that domain.
+
+\myparagraph{A flexibility case study: extending the rule schema itself}
+\label{sec:exclude_precond}
+The DifficultLogistics failure analysis identifies a limitation in the original rule schema. A broad \texttt{precond}, such as \texttt{obj}, can also match a gating object marked by a narrower predicate such as \texttt{key-package}; removing that object can break a global dependency.
+We added an optional \texttt{exclude\_precond} field to represent ``remove X unless X is also Y.'' With a domain-independent prompt instruction, Qwen2.5-14B generated:
+\begin{small}
+\begin{verbatim}
+{"precond": {"obj": [0]},
+ "exclude_precond": {"key-package": [0]},
+ "delete_objects": [0], ...}
+\end{verbatim}
+\end{small}
+This rule protects key packages from deletion. Gemma3-12B used the field inconsistently, and other gating dependencies, including switch panels, remain unprotected. We report this extension as a schema case study, not as an additional quantitative result.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Stage~2 Budget Policy Analysis}
+\label{app:budget}
+
+Runtime recovery competes with the rule-based relaxation step for the same per-problem timeout. The adopted policy therefore checks feasibility before issuing an LLM call:
+\begin{equation}
+  t_\text{before-step2} \geq t_\text{LLM} + t_\text{replan,min} + t_\text{step2,min}
+\end{equation}
+We set $t_\text{LLM}=5$\,s, $t_\text{replan,min}=1$\,s, and $t_\text{step2,min}=5$\,s, requiring at least 11\,s before the Step~2 deadline. The recovery replan is additionally capped at 15\% of the total timeout.
+For $T{=}30$\,s, only 10\,s remain at the decision point, so recovery is skipped. For $T{=}40$\,s, the check passes and recovery is attempted, but SR remains unchanged.
+The experiment supports the budget policy as a safeguard for fallback time; it does not show a planning benefit from the recovery proposal itself.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Exploratory Stage~3 Prompt Variants}
+\label{app:stage3_improvements}
+
+We also examined five prompt variants beyond the direct zero-shot scorer.
+The logged baseline uses $n{=}15$, whereas the exploratory variants use earlier $n{=}50$ runs. We retain these runs to document observed failure mechanisms, not to establish a ranking.
+
+\begin{table}[t]
+    \centering
+    \caption{Exploratory Stage~3 prompt variants on $12{\times}12$ Hard. Direct (alphabetical-80) is the logged baseline ($n{=}15$); rows marked $^\ddagger$ are earlier measurements ($n{=}50$) and are not directly comparable with the baseline.}
+    \label{tab:stage3_ablation}
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{lccp{4.5cm}}
+        \toprule
+        \textbf{Method} & \textbf{SR} & \textbf{Overhead} & \textbf{Observed limitation} \\
+        \midrule
+        Direct, alpha-80 (baseline)  & 0.533 & ${\approx}5$\,s  & Incomplete score dictionary \\
+        Direct, goal-biased-80       & 0.660$^\ddagger$ & ${\approx}7$\,s  & Different predicate coverage \\
+        Direct, goal-biased-150      & 0.620$^\ddagger$ & ${\approx}10$\,s & Higher input latency \\
+        CoT-full (2-turn, gb-150)    & 0.100$^\ddagger$ & ${\approx}12$\,s & Less time available for planning \\
+        CoT-lite (1-turn, gb-150)    & 0.060$^\ddagger$ & ${\approx}20$\,s & Longer response than CoT-full \\
+        Top-K ($K{=}40$, gb-150)     & 0.140$^\ddagger$ & ${\approx}5$\,s  & Low defaults delay inclusion \\
+        \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+Because the sample sizes and logging setups differ, we draw no pairwise SR conclusions from \tref{tab:stage3_ablation}. The runs show two recurring constraints: additional reasoning consumes the fixed planning budget, and selective scoring delays objects assigned a low default value.
+
+\myparagraph{Goal-biased fact selection}
+Goal-biased selection orders facts about goal objects and positions before other predicates. Relative to alphabetical selection, this changes the mixture of positional and object-property predicates in the 80- or 150-fact input. The unmatched exploratory runs do not isolate whether that change improves score quality.
+
+\myparagraph{Chain-of-Thought (CoT)}
+Two CoT variants were tested. CoT-full uses a 2-turn conversation (Turn 1: free-form path analysis; Turn 2: JSON scores). CoT-lite uses a single turn with an ``ANALYSIS:'' prefix before the JSON.
+Both require the model to produce reasoning text in addition to the score dictionary, resulting in approximately 12\,s and 20\,s of overhead. Under the 30\,s timeout, this leaves substantially less time for symbolic planning.
+
+\myparagraph{Top-K selective scoring}
+Top-K ($K{=}40$) asks the LLM to score only the $K$ most important objects, defaulting unselected objects to 0.1.
+This reduces the output JSON from ${\sim}240$ to ${\sim}40$ entries, cutting generation time to ${\approx}5$\,s.
+The selected objects receive scores between 0.6 and 1.0, while approximately 200 unselected objects receive 0.1.
+Because the threshold starts at 0.81 and decays by $\gamma{=}0.9$, an object scored at 0.1 requires more than 20 decay iterations before inclusion and is unlikely to enter the object set within the Step~1 budget.
+
+\myparagraph{Implication}
+The direct scorer does not return a complete score map: 70--99\% of objects receive the 0.5 fallback after the single-turn response ends. Additional reasoning increases latency without resolving this incompleteness, whereas Top-K assigns omitted objects a value that is too low for timely threshold decay.
+The diagnostic therefore motivates bounded batches or pagination rather than a longer prompt alone.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Baseline Comparison: Pure FD, PLOI, and Flax Variants}
+\label{app:baselines}
+
+This subsection compares four configurations that isolate unguided symbolic search, GNN scoring, and manual or generated rules.
+
+\myparagraph{Configurations}
+\begin{itemize}[noitemsep,topsep=2pt]
+  \item \textbf{Pure FD}: Fast Downward with no guidance and no rules.
+    This is the unguided symbolic baseline.
+  \item \textbf{PLOI}: GNN-guided \texttt{IncrementalPlanner}~\cite{silver2021planning} with no relaxation or complementary rules.
+    Represents the neural baseline without rule-based simplification.
+  \item \textbf{Manual (Flax)}: GNN + manually authored rules (1 relaxation, 1 complementary).
+    This is the hand-authored neuro-symbolic baseline.
+  \item \textbf{\method}: the same GNN + LLM-generated rules (1 relaxation, 7 complementary).
+    This is the Stage~1 configuration reported in \tref{tab:main}; it is distinct from \fullmethod.
+\end{itemize}
+
+\begin{table}[t]
+  \centering
+  \caption{Comparison of Pure FD, PLOI, manual Flax, and Stage~1 \method across eight MazeNamo benchmarks. Time is averaged over successful problems and should be interpreted together with SR. Manual and \method values are from \tref{tab:main}.}
+  \label{tab:baselines}
+  \small
+  \setlength{\tabcolsep}{3.5pt}
+  \renewcommand{\arraystretch}{1.05}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{llcccc}
+    \toprule
+    \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} & \textbf{Len} \\
+    \midrule
+    \multirow{4}{*}{10$\times$10 Easy}
+      & Pure FD      & 1.000 & 0.671 & 15.4 \\
+      & PLOI         & 0.900 & 0.761 & 17.6 \\
+      & Manual       & 1.000 & 0.932 & 17.4 \\
+      & \method      & 1.000 & 0.898 & 17.1 \\
+    \midrule
+    \multirow{4}{*}{10$\times$10 Medium}
+      & Pure FD      & 1.000 & 1.400 & 15.7 \\
+      & PLOI         & 0.920 & 0.840 & 16.5 \\
+      & Manual       & 0.960 & 1.997 & 19.8 \\
+      & \method      & 1.000 & 0.949 & 16.6 \\
+    \midrule
+    \multirow{4}{*}{10$\times$10 Hard}
+      & Pure FD      & 1.000 & 3.030 & 19.2 \\
+      & PLOI         & 0.820 & 1.310 & 19.2 \\
+      & Manual       & 0.960 & 2.200 & 19.8 \\
+      & \method      & 0.960 & 1.600 & 19.3 \\
+    \midrule
+    \multirow{4}{*}{12$\times$12 Medium}
+      & Pure FD      & 1.000 & 6.190 & 21.1 \\
+      & PLOI         & 0.900 & 1.320 & 21.8 \\
+      & Manual       & 0.960 & 1.914 & 22.1 \\
+      & \method      & 0.980 & 2.151 & 22.3 \\
+    \midrule
+    \multirow{4}{*}{12$\times$12 Hard}
+      & Pure FD      & 1.000 & 17.59 & 28.8 \\
+      & PLOI         & 0.580 & 1.270 & 26.3 \\
+      & Manual       & 0.880 & 3.965 & 29.8 \\
+      & \method      & 0.920 & 4.529 & 29.2 \\
+    \midrule
+    \multirow{4}{*}{12$\times$12 Expert}
+      & Pure FD      & 0.333 & 26.19 & 29.7 \\
+      & PLOI         & 0.433 & 1.090 & 26.1 \\
+      & Manual       & 0.667 & 4.528 & 31.5 \\
+      & \method      & 0.700 & 5.982 & 29.3 \\
+    \midrule
+    \multirow{4}{*}{15$\times$15 Medium}
+      & Pure FD      & 1.000 & 27.33 & 31.8 \\
+      & PLOI         & 0.767 & 5.090 & 30.0 \\
+      & Manual       & 0.967 & 8.740 & 30.9 \\
+      & \method      & 0.967 & 9.007 & 31.0 \\
+    \midrule
+    \multirow{4}{*}{15$\times$15 Hard}
+      & Pure FD      & 0.333 & 34.37 & 29.3 \\
+      & PLOI         & 0.700 & 3.750 & 32.0 \\
+      & Manual       & 0.900 & 11.901 & 36.2 \\
+      & \method      & 1.000 & 10.979 & 36.0 \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table}
+
+\myparagraph{Main observations}
+Pure FD solves all instances in six of the eight settings, including $12{\times}12$ Hard, and must therefore be treated as a competitive baseline rather than a lower bound. Its SR falls to 0.333 on $12{\times}12$ Expert and $15{\times}15$ Hard, where its mean time over successful runs is 26.2--34.4\,s.
+
+PLOI reduces mean time but has lower SR than Pure FD on six settings. Because time is conditioned on success, this difference does not by itself establish greater efficiency: a configuration that solves fewer, easier instances can have a lower mean.
+
+The manual and generated-rule configurations have similar SR throughout the benchmark. Both outperform the rule-free configurations on $12{\times}12$ Expert and $15{\times}15$ Hard, while Pure FD is strongest on several easier settings. These results support generated rules as a replacement for manual rules within Flax, not as a uniform improvement over Fast Downward.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Qualitative Visualization: Planning Traces}
+\label{app:vis}
+
+For each benchmark, we show (a) the full problem, (b) zero-shot LLM scores for diagnostic visualization, and (c) the retained object set and plan from the Stage~1 configuration.
+The scores in column (b) are not used to produce column (c); the planner uses the trained GNN, matching \tref{tab:main}.
+The left block covers the four smaller grids ($10{\times}10$ and $12{\times}12$ Medium);
+the right block covers the four harder grids ($12{\times}12$ Hard/Expert and $15{\times}15$).
+
+\begin{sidewaysfigure*}
+  \centering
+  \includegraphics[width=0.93\textheight, keepaspectratio]{figures/vis/vis_all.pdf}
+  \caption{Qualitative MazeNamo traces. Each row is one benchmark; columns show \textbf{(a)} the full problem, \textbf{(b)} zero-shot LLM scores for diagnostic display only, and \textbf{(c)} the retained object set and plan produced by the Stage~1 configuration using the trained GNN and generated rules.}
+  \label{fig:vis_all}
+\end{sidewaysfigure*}
+
+\fref{fig:vis_crossdomain} shows one solved instance from each additional domain using generated rules and the no-guidance scorer. SokomindPlus is rendered as a grid; DifficultLogistics is rendered as a city-clustered graph. In the latter trace, the relaxed problem is unsolvable, so the corrected planner retains all 100 objects before computing the final plan.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{figures/vis/vis_crossdomain.pdf}
+  \caption{Qualitative traces with Gemma3-12B rules and the no-guidance scorer. \textbf{Top}: SokomindPlus; blue denotes boxes, red the goal box, and green the robot. \textbf{Bottom}: DifficultLogistics; locations are grouped by city, dashed edges denote air links, and column (c) traces the truck and airplane routes. The DifficultLogistics trace retains all 100 objects after the relaxed problem is found unsolvable.}
+  \label{fig:vis_crossdomain}
+\end{figure*}
+
+
+\subsection{Stage~3: Zero-Shot Object Scoring}
+\label{sec:results_stage3}
+
+\tref{tab:stage3} reports \fullmethod with per-run logging. The Stage~3 sample sizes are smaller than those of the Stage~1 baselines, so the table describes the performance gap but is not a matched statistical comparison.
+On $12{\times}12$ Hard ($n{=}15$), \fullmethod obtains SR~0.533 and mean end-to-end time 24.2\,s without GNN training data.
+On $15{\times}15$ Hard ($n{=}10$), it does not solve an instance within the timeout.
+
+\begin{table}[h]
+    \centering
+    \caption{\fullmethod versus the manual and Stage~1 configurations. \fullmethod uses no manual rules or GNN training data. Its sample sizes are $n{=}15$ for $12{\times}12$ Hard and $n{=}10$ for $15{\times}15$ Hard; the corresponding baseline sizes are $n{=}50$ and $n{=}30$. Time is undefined when no problem is solved.}
+    \label{tab:stage3}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.1}
+    \begin{tabular}{llcc}
+        \toprule
+        \textbf{Task} & \textbf{Config} & \textbf{SR} & \textbf{Time (s)} \\
+        \midrule
+        \multirow{3}{*}{12$\times$12 Hard}
+            & Manual              & 0.880          & \textbf{3.965} \\
+            & \method             & \textbf{0.920} & 4.529 \\
+            & \fullmethod         & 0.533          & 24.21 \\
+        \midrule
+        \multirow{3}{*}{15$\times$15 Hard}
+            & Manual              & 0.900          & 11.901 \\
+            & \method             & \textbf{1.000} & \textbf{10.979} \\
+            & \fullmethod         & 0.000          & --- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The logged prompt contains approximately 3.5K tokens, including the goal, all object names, and up to 80 state facts. Every diagnostic response ends with \texttt{finish\_reason=stop}, not \texttt{length}, but returns scores for only a subset of the listed objects.
+The resulting mean score coverage is 17\% at $12{\times}12$ Hard and 9\% at $15{\times}15$ Hard; omitted objects receive the 0.5 fallback. \sref{app:stage3_improvements} reports exploratory prompt variants.
+
+\myparagraph{Diagnosing the Stage~3 failure directly}
+\label{sec:stage3_diagnosis}
+We captured the raw score dictionary before applying the fallback on eight problems from each setting (\texttt{results/stage3\_diagnostic\_*.json}). At $12{\times}12$, the model scores 2--72 of 233--242 objects; at $15{\times}15$, it scores 9--102 of 355--367 objects.
+Among problems with a known-good manual Flax plan, the returned dictionaries contain 17.9\% and 9.6\% of the objects used by that plan, on average. This diagnostic points to incomplete single-turn enumeration as one cause of the degradation, while the 80-fact selection may still limit the information available for scoring.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\myparagraph{Evidence for Stage~1}
+Stage~1 is the best-supported component of \method. Gemma3-12B reproduces the manual MazeNamo relaxation rule and generates complementary relations that yield similar SR across all eight settings. The mean SR difference is $+0.029$, but the controlled $12{\times}12$ Expert ablation reduces the observed gain to one additional solution out of 30 and a 32\% time increase. These single-seed results support replacement of manual rules, but not a claim of statistically significant improvement over them.
+The validator constrains syntax and predicate references; it cannot establish that an accepted rule preserves useful planning semantics. The performance variation across models and the DifficultLogistics gating-object case illustrate this remaining requirement.
+
+\myparagraph{Role of the symbolic baseline}
+Pure FD reaches SR~1.000 on six MazeNamo settings and on both additional domains. Its performance falls on the two hardest MazeNamo settings, where successful runs also take 26.2--34.4\,s. Manual and generated rules improve SR in those settings, but the result is a benchmark-dependent trade-off rather than a uniform advantage over unguided search. Mean time is conditioned on success and should not be compared independently of SR.
+
+\myparagraph{Runtime LLM guidance}
+Stage~2 does not improve SR on either evaluated benchmark. Its contribution is limited to a feasibility policy that prevents the optional call from consuming the relaxation budget.
+Stage~3 removes GNN training but performs substantially worse: SR is 0.533 on $12{\times}12$ Hard and 0.000 on $15{\times}15$ Hard. The diagnostic shows that single-turn JSON generation omits most objects, while alternative prompts either add latency or assign omitted objects scores that delay their inclusion. Batched scoring is a testable next step, but the current results do not support replacing the GNN at the larger setting.
+
+\myparagraph{Transfer and adaptation cost}
+The additional-domain experiments compare rule sources under a shared untrained scorer. They show that the rule-generation procedure can produce usable configurations outside MazeNamo, including a structurally different logistics domain, but three domains are insufficient to establish broad domain generalization.
+Stage~1 also retains the GNN trained on 200 MazeNamo problems. It therefore removes rule-authoring effort, not the separate cost of domain-specific training data. \fullmethod removes both costs only by accepting the Stage~3 performance loss.
+
+\myparagraph{Limitations}
+The experiments use one seed, several exploratory tables combine different sample sizes, and the additional-domain study does not include trained domain-specific scorers. A stronger evaluation would use repeated seeds, matched problem sets for every ablation, and more domains with different causal structures. Rule selection on a held-out validation set could also test whether additional complementary relations justify their planning-time cost.
+
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented three LLM integrations for the Flax neuro-symbolic planner and evaluated their adaptation costs separately.
+The Stage~1 configuration replaces manually authored rules while retaining the trained GNN. It obtains a descriptive mean SR of 0.941 across eight MazeNamo settings, compared with 0.912 for manual rules, and produces usable rules in two additional-domain probes. The controlled rule-set ablation shows that the measured difference is small and accompanied by additional planning time.
+
+Stage~2 preserves fallback time but does not improve SR. Stage~3 removes domain-specific GNN training data, but its SR falls to 0.533 and 0.000 on the two evaluated settings because the single-turn scorer returns incomplete object dictionaries.
+Taken together, the experiments support schema-constrained LLM rule generation as a practical reduction in rule-engineering effort. They do not yet support zero-shot LLM scoring as a performance-matched replacement for the trained object scorer.
+
+
+\section*{Acknowledgments}
+This work builds directly on the Flax neuro-symbolic planner~\cite{du2026fast}.
+The core three-step planning loop, the MazeNamo benchmark environments, and the GNN training infrastructure are all from the original Flax system.
+We thank the authors for making their code and benchmark publicly available.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\phantomsection
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\EOD
+
+\end{document}

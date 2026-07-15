@@ -1,0 +1,49 @@
+This paper presents LLM-Flax, a framework for reducing manual domain
+engineering in neuro-symbolic robotic task planning. The method uses
+LLMs to generate relaxation and complementary rules from a PDDL domain
+file, adds LLM-guided failure recovery, and explores zero-shot LLM
+object scoring as a replacement for a trained GNN.
+
+The main strength of the paper is the automatic rule-generation
+component. This is a useful and practical contribution. The results
+show that LLM-generated rules can match or improve over manually
+written rules on the MazeNamo benchmark, and the comparison across
+different LLMs provides helpful insight into rule quality and failure
+modes. I also appreciate the inclusion of validation, self-correction,
+deduplication, and predicate filtering, since these make the approach
+more reliable than direct prompting alone.
+
+However, I have some concerns. First, the generalization claim is
+stronger than the current evidence. The experiments are limited to
+MazeNamo, so it is difficult to conclude that the method generalizes
+well to new domains from only a PDDL file. Adding even one additional
+domain would make the paper much stronger.
+
+Second, the three stages are not equally supported. Stage 1 is
+convincing, but Stage 2 does not appear to improve success rate in the
+reported results. Stage 3 is promising but mixed, especially with the
+drop on 15×15 Hard. The paper should more clearly separate the strong
+results for rule generation from the more preliminary results for
+zero-shot object scoring.
+
+Third, the Stage 3 failure case needs more analysis. The explanation
+about the 80-fact prompt limit is plausible, but it would help to show
+whether important objects are missing, whether irrelevant objects are
+scored too highly, or whether increasing the context improves scoring
+but hurts runtime.
+
+The paper is generally understandable, but the presentation should be
+improved. Some tables are crowded, and the results section tries to
+cover many components at once. A clearer organization around the three
+stages would help. 
+
+The citations are appropriate and cover relevant work. The related work
+could more clearly distinguish this paper from other LLM-for-planning
+approaches by emphasizing that this work uses LLMs to generate
+structured rule configurations, rather than using the LLM directly as
+the planner.
+
+Overall, this is a promising and relevant paper. I recommend revision
+to strengthen the evidence for generalization, clarify the limitations
+of Stage 2 and Stage 3, and improve the presentation. No multimedia
+attachment was available for evaluation.

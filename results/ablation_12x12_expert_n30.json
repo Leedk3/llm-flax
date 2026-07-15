@@ -5,11 +5,32 @@
   "num_seeds": 1,
   "results": [
     {
-      "avg_time": 5.2395806095816875,
-      "success_rate": 0.7333333333333333,
-      "avg_plan_length": 30.045454545454547,
-      "wall_time_s": 343.7,
+      "avg_time": 4.528080487251282,
+      "success_rate": 0.6666666666666666,
+      "avg_plan_length": 31.5,
+      "wall_time_s": 380.8,
+      "config": "manual"
+    },
+    {
+      "avg_time": 5.982192550386701,
+      "success_rate": 0.7,
+      "avg_plan_length": 29.333333333333332,
+      "wall_time_s": 386.1,
       "config": "llm_rules_gemma3-12b"
+    },
+    {
+      "avg_time": 4.403271853923798,
+      "success_rate": 0.6666666666666666,
+      "avg_plan_length": 31.5,
+      "wall_time_s": 379.7,
+      "config": "llm_rules_gemma3-12b_oatonly"
+    },
+    {
+      "avg_time": 4.299889385700226,
+      "success_rate": 0.6666666666666666,
+      "avg_plan_length": 31.5,
+      "wall_time_s": 375.5,
+      "config": "llm_rules_gemma3-12b_3rules"
     }
   ]
 }

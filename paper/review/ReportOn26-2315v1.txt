@@ -1,0 +1,10 @@
+Three reviewers reviewed the paper, and the overall evaluation is
+negative. The major concerns are: (1) the claim that the LLM can
+replace the GNN object scorer is overstated; (2) the generalization
+claim is not well demonstrated as all experiments are on a single
+domain (MazeNamo), without cross-domain evidence; (3) the scalability
+claim is not fully supported; (4) the three stages are not equally
+supported: stage 1 is convincing, stage 2 is explicitly neutral, and
+stage 3 has mixed results; (5) the comparison between manual rules and
+LLM-generated rules is not fair; (6) the stage 3 failure case needs
+more analysis; and (7) some figures and statements are not consistent. 

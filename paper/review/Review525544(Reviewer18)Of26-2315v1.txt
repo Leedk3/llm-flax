@@ -1,0 +1,33 @@
+The paper uses a local LLM to auto-generate Flax's rule configs (Stage
+1), add budget-gated failure recovery (Stage 2), and replace the GNN
+scorer with zero-shot LLM scoring (Stage 3). The core idea is
+reasonable and I credit the authors for reporting negative results
+honestly, but the evidence does not support the claims and the figures
+undermine confidence in the work. My detailed comments follow:
+1.The title and framing promise "generalizable" / domain-agnostic
+planning, but all experiment is on one single domain (MazeNamo).
+There's no cross-domain evidence whatsoever, and the authors concede
+this is left to future work. The central claim is unsupported.
+2. You stated "+0.117 average SR" but exlucing the expert, the gap is
+only around 0.03 imrpovement on 7 benchmarks.
+3. I found pure FD averages 0.833 above Manual Flax and beats LLM-Flax
+on 6/8 benchmarks, yet receives no analysis in the text. A classical
+planner with no rule and no GNN is competitive with the full system
+almost everywhere, which contradicts the motivation.
+4. The deployment claim "only a PDDL file" holds only for Full
+LLM-Flax, which is the worst configuration. The configuration that
+performs well still needs the GNN trained on 200 problems and is
+therefore not deployment-free. You cannot have both good performance
+and zero manual effort, and the paper does not resolve this.
+5. Stages 2 and 3 might be be considered as contributions. Stage 2 is
+explicitly neutral (identical SR, slightly worse time). Stage 3
+degrades SR on both tested benchmarks at 4.9 times the cost. Two of the
+three stages do not work.
+6. The figures are inconsistent and appear to have been generated
+without checking against the experiments: Fig 1 says "142/163 objects
+pruned" while Figure 4 says 142 retained and 21 pruned; Fig 2 labels
+the model "Qwen2.5-14b" but the primary model is Gemma3-12B? FIg 4b
+shows the zero-shot scorer outputting a near-constant 0.50 for almost
+all objects; Fig 1 caption "full Full LLM-Flax". 
+These errors, together with the unexplained baseline anomaly, leave me
+unable to trust the reported results.

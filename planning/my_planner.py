@@ -67,6 +67,25 @@ def apply_relaxation_rules(state, relaxation_rules, domain, force_include_goal_o
         except (IndexError, KeyError):
             continue  # skip rules with invalid pre_compute indices
 
+        # Optional field: exclude_precond marks predicates that, if also true
+        # of a candidate object, protect it from deletion even though it
+        # matches `precond` -- e.g. a rule that removes packages in general
+        # ({"obj": [0]}) can exclude_precond={"key-package": [0]} so it never
+        # strips an object that gates reachability elsewhere in the plan.
+        # This lets a single generic relaxation rule format express "remove
+        # X unless X is also a Y" without needing full negation support.
+        exclude_precond = rule.get("exclude_precond", {})
+        excluded_from_deletion = set()
+        if exclude_precond:
+            for lit in state.literals:
+                p_name = lit.predicate.name
+                if p_name in exclude_precond:
+                    try:
+                        for v_idx in exclude_precond[p_name]:
+                            excluded_from_deletion.add(lit.variables[v_idx])
+                    except IndexError:
+                        continue
+
         for lit in state.literals:
             p_name = lit.predicate.name
             if p_name in rule["precond"]:
@@ -74,6 +93,9 @@ def apply_relaxation_rules(state, relaxation_rules, domain, force_include_goal_o
                     v_idx_2_obj = {}
                     for v_idx in rule["precond"][p_name]:
                         v_idx_2_obj[v_idx] = lit.variables[v_idx]
+                    if any(v_idx_2_obj[v_idx] in excluded_from_deletion
+                          for v_idx in rule["delete_objects"]):
+                        continue
                     for v_idx in rule["delete_objects"]:
                         if v_idx_2_obj[v_idx] not in goal_objects:
                             relaxed_objects.discard(v_idx_2_obj[v_idx])
@@ -437,10 +459,22 @@ class PureRelaxationPlanner(Planner):
                     time_elapsed = time.time()-start_time
                     relaxed_plan = self._planner(domain, dummy_state, timeout/2-time_elapsed)
                     vis_info["relaxed_plan"] = relaxed_plan
+                    objects_in_relaxed_plan = {o for act in relaxed_plan for o in act.variables}
                 except PlanningTimeout:
                     raise PlanningTimeout("Rule-relaxed problem planning timed out!")
+                except PlanningFailure:
+                    # The relaxed sub-problem is proven unsolvable (e.g. relaxation
+                    # over-pruned an object that is actually globally necessary --
+                    # observed on domains with connectivity constraints, unlike
+                    # MazeNamo/SokomindPlus's box-relaxation which never disconnects
+                    # the state space). Rather than aborting the whole attempt,
+                    # treat relaxation as having contributed nothing new and fall
+                    # through to complementary expansion on the current object set.
+                    print("[Rule-relaxed problem is unsolvable; skipping relaxation "
+                          "enhancement, falling back to current object set.]", flush=True)
+                    vis_info["relaxed_plan"] = None
+                    objects_in_relaxed_plan = set()
 
-                objects_in_relaxed_plan = {o for act in relaxed_plan for o in act.variables}
                 cur_objects.update(objects_in_relaxed_plan)
 
                 new_cur_objects = cur_objects.copy()
@@ -576,10 +610,22 @@ class FlaxPlanner(Planner):
                     time_elapsed = time.time()-start_time
                     relaxed_plan = self._planner(domain, dummy_state, timeout/2-time_elapsed)
                     vis_info["relaxed_plan"] = relaxed_plan
+                    objects_in_relaxed_plan = {o for act in relaxed_plan for o in act.variables}
                 except PlanningTimeout:
                     raise PlanningTimeout("Rule-relaxed problem planning timed out!")
+                except PlanningFailure:
+                    # The relaxed sub-problem is proven unsolvable (e.g. relaxation
+                    # over-pruned an object that is actually globally necessary --
+                    # observed on domains with connectivity constraints, unlike
+                    # MazeNamo/SokomindPlus's box-relaxation which never disconnects
+                    # the state space). Rather than aborting the whole attempt,
+                    # treat relaxation as having contributed nothing new and fall
+                    # through to complementary expansion on the current object set.
+                    print("[Rule-relaxed problem is unsolvable; skipping relaxation "
+                          "enhancement, falling back to current object set.]", flush=True)
+                    vis_info["relaxed_plan"] = None
+                    objects_in_relaxed_plan = set()
 
-                objects_in_relaxed_plan = {o for act in relaxed_plan for o in act.variables}
                 cur_objects.update(objects_in_relaxed_plan)
 
                 # Apply complementary rules
@@ -794,11 +840,20 @@ class LLMFlaxPlanner(Planner):
             step2_budget = max(STEP2_MIN, timeout / 2 - time_elapsed)
             relaxed_plan = self._planner(domain, dummy_state, step2_budget)
             vis_info["relaxed_plan"] = relaxed_plan
+            objects_in_relaxed_plan = {o for act in relaxed_plan
+                                       for o in act.variables}
         except PlanningTimeout:
             raise PlanningTimeout("Rule-relaxed problem planning timed out!")
+        except PlanningFailure:
+            # See FlaxPlanner.__call__ for rationale: the relaxed sub-problem
+            # can be proven unsolvable on domains with connectivity
+            # constraints (e.g. DifficultLogistics). Fall back to treating
+            # relaxation as a no-op instead of aborting.
+            print("[Rule-relaxed problem is unsolvable; skipping relaxation "
+                  "enhancement, falling back to current object set.]", flush=True)
+            vis_info["relaxed_plan"] = None
+            objects_in_relaxed_plan = set()
 
-        objects_in_relaxed_plan = {o for act in relaxed_plan
-                                   for o in act.variables}
         cur_objects.update(objects_in_relaxed_plan)
 
         # ── Step 3: Complementary rules ──────────────────────────────────────

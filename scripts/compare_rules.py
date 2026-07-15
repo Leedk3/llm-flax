@@ -70,6 +70,19 @@ RULE_CONFIGS = {
         "cmpl_rules": "config/mazenamo_complementary_rules_gemma3-12b.json",
         "relx_rules": "config/mazenamo_relaxation_rules_gemma3-12b.json",
     },
+    # ── Rule-budget fairness ablation (R21): same relaxation rule (identical to
+    # manual) throughout; only complementary rule *count* varies. Isolates
+    # whether SR gains come from rule count vs. rule content. ─────────────────
+    "llm_rules_gemma3-12b_oatonly": {
+        "planner_type": "flax",
+        "cmpl_rules": "config/mazenamo_complementary_rules_gemma3-12b_oat-only.json",
+        "relx_rules": "config/mazenamo_relaxation_rules_gemma3-12b.json",
+    },
+    "llm_rules_gemma3-12b_3rules": {
+        "planner_type": "flax",
+        "cmpl_rules": "config/mazenamo_complementary_rules_gemma3-12b_3rules.json",
+        "relx_rules": "config/mazenamo_relaxation_rules_gemma3-12b.json",
+    },
     # Stage 3: Full LLM-Flax — no GNN training, no manual rules
     "full_llm_flax": {
         "planner_type": "llmflax",

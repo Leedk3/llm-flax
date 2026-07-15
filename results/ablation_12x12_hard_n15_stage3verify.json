@@ -1,0 +1,15 @@
+{
+  "size": 12,
+  "difficulty": "hard",
+  "num_problems": 15,
+  "num_seeds": 1,
+  "results": [
+    {
+      "avg_time": 24.2050521671772,
+      "success_rate": 0.5333333333333333,
+      "avg_plan_length": 30.375,
+      "wall_time_s": 281.4,
+      "config": "full_llm_flax"
+    }
+  ]
+}

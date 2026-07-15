@@ -12,7 +12,7 @@ class NoSearchGuidance(BaseSearchGuidance):
         super().__init__()
         self._rng = None
 
-    def train(self, train_env_name):
+    def train(self, train_env_name, timeout=120):
         pass  # unused
 
     def seed(self, seed):

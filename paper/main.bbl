@@ -132,8 +132,8 @@ M.~Law, A.~Russo, and K.~Broda, ``Inductive learning of answer set programs for
   autonomous planning,'' in \emph{Proceedings of the 28th International Joint
   Conference on Artificial Intelligence}, 2019.
 
-\bibitem{qwen2025qwen25}
-Q.~Team, ``Qwen2.5 technical report,'' \emph{arXiv preprint arXiv:2412.15115},
-  2024.
+\bibitem{gemma3_2025}
+G.~Team, ``Gemma 3 technical report,'' \emph{arXiv preprint arXiv:2503.19786},
+  2025.
 
 \end{thebibliography}

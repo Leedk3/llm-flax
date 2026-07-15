@@ -1,0 +1,63 @@
+{
+    "rule0": {
+        "pre_compute": {
+            "at": [
+                0,
+                1
+            ]
+        },
+        "precond": {
+            "on-ground": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "at": [
+                0,
+                1
+            ],
+            "on-ground": [
+                0
+            ],
+            "clear": [
+                0
+            ]
+        },
+        "add_effects": {
+            "ground-free": [
+                1
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    },
+    "rule1": {
+        "pre_compute": {},
+        "precond": {
+            "obj": [
+                0
+            ]
+        },
+        "delete_effects": {
+            "obj": [
+                0
+            ],
+            "on-ground": [
+                0
+            ],
+            "clear": [
+                0
+            ]
+        },
+        "add_effects": {},
+        "exclude_precond": {
+            "key-package": [
+                0
+            ]
+        },
+        "delete_objects": [
+            0
+        ]
+    }
+}

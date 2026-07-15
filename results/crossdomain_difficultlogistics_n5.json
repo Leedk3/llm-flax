@@ -1,0 +1,20 @@
+{
+  "domain": "difficultlogistics",
+  "num_problems": 5,
+  "results": [
+    {
+      "avg_time": 25.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 40.4,
+      "config": "manual"
+    },
+    {
+      "avg_time": 25.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 78.4,
+      "config": "llm_rules_gemma3-12b"
+    }
+  ]
+}

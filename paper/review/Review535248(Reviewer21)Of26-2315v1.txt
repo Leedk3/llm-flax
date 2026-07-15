@@ -1,0 +1,52 @@
+## Strength
+
+1. The paper addresses a meaningful practical bottleneck in
+neuro-symbolic planning: the need for domain experts to manually design
+relaxation and complementary rules. Automating rule generation from a
+PDDL domain file is a useful and relevant direction.
+
+2. The Stage 1 results are promising. The LLM-generated relaxation rule
+can match the manual rule (e.g. Gemma3 in Table II). The generated
+complementary rules appear to improve performance on several
+benchmarks, suggesting that LLMs can capture useful predicate-level
+structure from the domain description.
+
+3. The paper includes useful ablations and model comparisons. 
+
+## Weakness
+
+1. The claim that the LLM can replace the GNN object scorer is
+overstated. The strongest results are obtained by LLM-generated rules
+while still using the trained GNN, whereas Full LLM-Flax drops from SR
+= 1.000 to 0.200 on 15×15 Hard when the GNN is removed.
+
+2. The scalability claim is not fully supported. The paper itself
+attributes the 15×15 Hard failure to a context-window bottleneck, where
+the instance has 240+ objects but the LLM prompt is capped at 80 state
+facts, suggesting that graph-based scoring is still needed at scale.
+
+3. The main effective contribution appears to be Stage 1 rather than
+the full three-stage framework. Stage 2 keeps the same SR as LLM-Flax
+in Table III, while Stage 3 is much worse than the GNN-based pipeline
+in Table VI, so the empirical gains mainly come from LLM-generated
+rules.
+
+4. The comparison between manual rules and LLM-generated rules is not
+fair. The manual baseline uses 1 relaxation rule and 1 complementary
+rule, while LLM-Flax uses 1 relaxation rule after deduplication and 3
+complementary rules, giving the LLM setting a larger rule budget. This
+rule-budget mismatch may partly explain the dramatic gain on 12×12
+Expert. Since the manual baseline has SR = 0 while LLM-Flax reaches SR
+= 0.733, it is unclear whether the improvement comes from LLM reasoning
+or simply from giving the LLM-generated configuration more
+complementary rules. 
+
+
+## Minor Presentation Issue
+Figure 2 labels the LLM as Qwen2.5-14B, while the primary model used in
+the main results appears to be Gemma3-12B. If the model is
+interchangeable, the figure should avoid naming a specific model; if it
+is meant to reflect the main experimental setting, it should use
+Gemma3-12B. Figure 1 also appears visually inconsistent: the arrow
+directions are confusing and inconsistent, and the black blocks are not
+clearly explained in the legend or caption. 

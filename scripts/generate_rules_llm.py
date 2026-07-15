@@ -41,7 +41,9 @@ def parse_predicates(domain_text: str) -> dict[str, int]:
     predicates = {}
 
     # Each predicate looks like: (name ?a - type ?b - type ...)
-    for pred_match in re.finditer(r"\(\s*(\w+)(.*?)\)", block, re.DOTALL):
+    # Predicate names may contain hyphens (e.g. "switch-for", "on-ground"),
+    # which \w does not match — use [\w-]+ so such names aren't truncated.
+    for pred_match in re.finditer(r"\(\s*([\w-]+)(.*?)\)", block, re.DOTALL):
         name = pred_match.group(1).lower()
         params = pred_match.group(2).strip()
         # Count parameters: tokens starting with ?
@@ -110,6 +112,10 @@ NEVER use strings like "obstacle" or "pos" as index values. Only integers.
 - delete_objects: index of the object to remove from the problem
 - delete_effects: predicates (and their arg indices) to remove from the state
 - add_effects: predicates (and their arg indices) to add after removal (e.g. mark position as empty)
+- exclude_precond (OPTIONAL): predicate(s) that PROTECT an object from deletion even though it
+  matches `precond`. Use this when `precond` is broad (e.g. matches every object of a type) but
+  some of those objects also gate reachability elsewhere (see SAFETY section below) -- this lets
+  you say "remove X, unless X is also a Y" without needing full logical negation.
 
 === PDDL DOMAIN ===
 {domain}
@@ -143,8 +149,26 @@ literals, and add posEmpty for its former position[1]."
   }}
 }}
 
+=== SAFETY: PROTECT GATING OBJECTS WITH exclude_precond ===
+If `precond` matches a broad type (e.g. "obj") that could include a specially-marked
+gating object (e.g. "key-package"), add `exclude_precond` for that specific marker so
+it is never deleted. Example:
+{{
+  "rule0": {{
+    "pre_compute": {{}},
+    "precond": {{"obj": [0]}},
+    "exclude_precond": {{"key-package": [0]}},
+    "delete_objects": [0],
+    "delete_effects": {{"obj": [0]}},
+    "add_effects": {{}}
+  }}
+}}
+This removes any obj[0], unless it is also a key-package[0].
+Keep your answer SHORT: 2-4 rules total is enough. Do not write one rule per predicate.
+
 Now generate relaxation rules for the PDDL domain above.
-Use lowercase predicate names. Output valid JSON only.
+Use lowercase predicate names (with hyphens exactly as shown, e.g. "key-package", never
+"key_package"). Output valid JSON only.
 """
 
 COMPLEMENTARY_RULES_PROMPT = """\
@@ -254,6 +278,8 @@ def validate_relaxation_rules(rules: dict,
             ("delete_effects", rule["delete_effects"]),
             ("add_effects", rule["add_effects"]),
         ]
+        if "exclude_precond" in rule:
+            all_pred_sections.append(("exclude_precond", rule["exclude_precond"]))
 
         for section, mapping in all_pred_sections:
             for pred, indices in mapping.items():
@@ -327,7 +353,7 @@ def normalize_relaxation_rules(rules: dict) -> dict:
     normalized = {}
     for rule_name, rule in rules.items():
         new_rule = {}
-        for field in ("pre_compute", "precond", "delete_effects", "add_effects"):
+        for field in ("pre_compute", "precond", "delete_effects", "add_effects", "exclude_precond"):
             if field in rule:
                 new_rule[field] = _lower_keys(rule[field])
         for field in ("delete_objects",):
@@ -366,7 +392,7 @@ def filter_unknown_predicates(rules: dict, known_predicates: dict[str, int],
     if rule_type == "relaxation":
         valid = {}
         for name, rule in rules.items():
-            sections = ["pre_compute", "precond", "delete_effects", "add_effects"]
+            sections = ["pre_compute", "precond", "delete_effects", "add_effects", "exclude_precond"]
             bad = [p for s in sections for p in rule.get(s, {}) if p not in known_predicates]
             if bad:
                 print(f"  Dropped [{name}]: unknown predicate(s) {bad}")

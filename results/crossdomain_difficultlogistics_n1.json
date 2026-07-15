@@ -1,0 +1,13 @@
+{
+  "domain": "difficultlogistics",
+  "num_problems": 1,
+  "results": [
+    {
+      "avg_time": 30.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 7.6,
+      "config": "manual"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "domain": "difficultlogistics_large",
+  "num_problems": 2,
+  "results": [
+    {
+      "avg_time": 120.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 241.7,
+      "config": "pure"
+    },
+    {
+      "avg_time": 91.81915616989136,
+      "success_rate": 0.5,
+      "avg_plan_length": 56.0,
+      "wall_time_s": 136.6,
+      "config": "manual"
+    },
+    {
+      "avg_time": 120.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 75.4,
+      "config": "llm_rules_gemma3-12b"
+    },
+    {
+      "avg_time": 120.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 241.7,
+      "config": "manual_llm-zero-shot"
+    },
+    {
+      "avg_time": 120.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 241.7,
+      "config": "llm_rules_gemma3-12b_llm-zero-shot"
+    }
+  ]
+}

@@ -25,8 +25,8 @@ DATA = {
     },
     "12×12": {
         "difficulties": ["Medium", "Hard", "Expert"],
-        "manual":  [0.960, 0.880, 0.000],
-        "llmflax": [0.980, 0.920, 0.733],
+        "manual":  [0.960, 0.880, 0.667],
+        "llmflax": [0.980, 0.920, 0.700],
     },
     "15×15": {
         "difficulties": ["Medium", "Hard"],

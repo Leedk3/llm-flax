@@ -1,0 +1,20 @@
+{
+  "domain": "sokomindplus",
+  "num_problems": 2,
+  "results": [
+    {
+      "avg_time": 7.417849659919739,
+      "success_rate": 1.0,
+      "avg_plan_length": 121.5,
+      "wall_time_s": 17.7,
+      "config": "manual"
+    },
+    {
+      "avg_time": 14.231596946716309,
+      "success_rate": 1.0,
+      "avg_plan_length": 102.5,
+      "wall_time_s": 31.2,
+      "config": "llm_rules_gemma3-12b"
+    }
+  ]
+}

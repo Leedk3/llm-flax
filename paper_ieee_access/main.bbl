@@ -1,0 +1,139 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{#1}
+\csname url@rmstyle\endcsname
+\providecommand{\newblock}{\relax}
+\providecommand{\bibinfo}[2]{#2}
+\providecommand\BIBentrySTDinterwordspacing{\spaceskip=0pt\relax}
+\providecommand\BIBentryALTinterwordstretchfactor{4}
+\providecommand\BIBentryALTinterwordspacing{\spaceskip=\fontdimen2\font plus
+\BIBentryALTinterwordstretchfactor\fontdimen3\font minus
+  \fontdimen4\font\relax}
+\providecommand\BIBforeignlanguage[2]{{%
+\expandafter\ifx\csname l@#1\endcsname\relax
+\typeout{** WARNING: IEEEtran.bst: No hyphenation pattern has been}%
+\typeout{** loaded for the language `#1'. Using the pattern for}%
+\typeout{** the default language instead.}%
+\else
+\language=\csname l@#1\endcsname
+\fi
+#2}}
+
+\bibitem{helmert2006fast}
+M.~Helmert, ``The fast downward planning system,'' vol.~26, 2006, pp. 191--246.
+
+\bibitem{edelkamp2004pddl2}
+S.~Edelkamp and J.~Hoffmann, ``{PDDL2.2}: The language for the classical part
+  of the 4th international planning competition,'' 2004.
+
+\bibitem{silver2021planning}
+T.~Silver, K.~Allen, A.~Lew, L.~P. Kaelbling, and J.~Tenenbaum, ``Planning with
+  learned object importance in large problem instances,'' in \emph{Proceedings
+  of the AAAI Conference on Artificial Intelligence}, vol.~35, no.~13, 2021,
+  pp. 11\,738--11\,746.
+
+\bibitem{chen2024graph}
+Y.~Chen \emph{et~al.}, ``Graph-ploi: Graph neural networks for planning with
+  learned object importance,'' in \emph{International Conference on Robotics
+  and Automation}, 2024.
+
+\bibitem{du2026fast}
+Q.~Du, B.~Li, Y.~Du, S.~Su, T.~Fu, Z.~Zhan, Z.~Zhao, and C.~Wang, ``Fast task
+  planning with neuro-symbolic relaxation,'' \emph{IEEE Robotics and Automation
+  Letters}, 2026, arXiv:2507.15975.
+
+\bibitem{brown2020language}
+T.~Brown, B.~Mann, N.~Ryder, \emph{et~al.}, ``Language models are few-shot
+  learners,'' \emph{Advances in Neural Information Processing Systems},
+  vol.~33, pp. 1877--1901, 2020.
+
+\bibitem{wei2022chain}
+J.~Wei, X.~Wang, D.~Schuurmans, \emph{et~al.}, ``Chain-of-thought prompting
+  elicits reasoning in large language models,'' \emph{Advances in Neural
+  Information Processing Systems}, vol.~35, pp. 24\,824--24\,837, 2022.
+
+\bibitem{hoffmann2001ff}
+J.~Hoffmann and B.~Nebel, ``The {FF} planning system: Fast plan generation
+  through heuristic search,'' \emph{Journal of Artificial Intelligence
+  Research}, vol.~14, pp. 253--302, 2001.
+
+\bibitem{fikes1971strips}
+R.~E. Fikes and N.~J. Nilsson, ``{STRIPS}: A new approach to the application of
+  theorem proving to problem solving,'' \emph{Artificial Intelligence}, vol.~2,
+  no. 3-4, pp. 189--208, 1971.
+
+\bibitem{garrett2020pddlstream}
+C.~R. Garrett, T.~Lozano-P{\'e}rez, and L.~P. Kaelbling, ``{PDDLStream}:
+  Integrating symbolic planners and blackbox samplers via optimistic adaptive
+  planning,'' in \emph{Proceedings of the International Conference on Automated
+  Planning and Scheduling}, vol.~30, 2020, pp. 440--448.
+
+\bibitem{silver2022neurosymbolic}
+T.~Silver, A.~Athalye, J.~B. Tenenbaum, T.~Lozano-P{\'e}rez, and L.~P.
+  Kaelbling, ``Learning neuro-symbolic skills for bilevel planning,'' in
+  \emph{Conference on Robot Learning}, 2022, arXiv:2206.10680.
+
+\bibitem{chitnis2022learning}
+R.~Chitnis, T.~Silver, J.~B. Tenenbaum, T.~Lozano-Perez, and L.~P. Kaelbling,
+  ``Learning neuro-symbolic relational transition models for bilevel
+  planning,'' in \emph{2022 IEEE/RSJ International Conference on Intelligent
+  Robots and Systems (IROS)}.\hskip 1em plus 0.5em minus 0.4em\relax IEEE,
+  2022, pp. 4166--4173.
+
+\bibitem{silver2023predicate}
+T.~Silver, R.~Chitnis, N.~Kumar, W.~McClinton, T.~Lozano-P{\'e}rez,
+  L.~Kaelbling, and J.~B. Tenenbaum, ``Predicate invention for bilevel
+  planning,'' in \emph{Proceedings of the AAAI Conference on Artificial
+  Intelligence}, vol.~37, no.~10, 2023, pp. 12\,120--12\,129.
+
+\bibitem{kumar2023learning}
+N.~Kumar, W.~McClinton, R.~Chitnis, T.~Silver, T.~Lozano-P{\'e}rez, and L.~P.
+  Kaelbling, ``Learning efficient abstract planning models that choose what to
+  predict,'' in \emph{Conference on Robot Learning}, 2023, pp. 2070--2095.
+
+\bibitem{li2024logicity}
+B.~Li, Z.~Li, Q.~Du, J.~Luo, W.~Wang, Y.~Xie, \emph{et~al.}, ``{LogiCity}:
+  Advancing neuro-symbolic {AI} with abstract urban simulation,'' in
+  \emph{Advances in Neural Information Processing Systems}, vol.~37, 2024, pp.
+  69\,840--69\,864.
+
+\bibitem{ahn2022can}
+M.~Ahn, A.~Brohan, N.~Brown, \emph{et~al.}, ``Do as i can, not as i say:
+  Grounding language in robotic affordances,'' in \emph{Conference on Robot
+  Learning}, 2022.
+
+\bibitem{liu2023llm+}
+B.~Liu, Y.~Jiang, X.~Zhang, \emph{et~al.}, ``{LLM+P}: Empowering large language
+  models with optimal planning proficiency,'' \emph{arXiv preprint
+  arXiv:2304.11477}, 2023.
+
+\bibitem{zhang2023pddl}
+M.~Zhang \emph{et~al.}, ``{PDDL}-based planning with large language models,''
+  in \emph{International Conference on Automated Planning and Scheduling},
+  2023.
+
+\bibitem{guan2023leveraging}
+L.~Guan, K.~Valmeekam, S.~Gao, and S.~Kambhampati, ``Leveraging pre-trained
+  large language models to construct and utilize world models for model-based
+  task planning,'' in \emph{Advances in Neural Information Processing Systems},
+  vol.~36, 2023.
+
+\bibitem{yao2023tree}
+S.~Yao, D.~Yu, J.~Zhao, \emph{et~al.}, ``Tree of thoughts: Deliberate problem
+  solving with large language models,'' in \emph{Advances in Neural Information
+  Processing Systems}, vol.~36, 2023.
+
+\bibitem{cresswell2013acquiring}
+S.~Cresswell, T.~L. McCluskey, and M.~M. West, ``Acquiring planning domain
+  models using {LOCM},'' \emph{The Knowledge Engineering Review}, vol.~28,
+  no.~2, pp. 195--213, 2013.
+
+\bibitem{law2019inductive}
+M.~Law, A.~Russo, and K.~Broda, ``Inductive learning of answer set programs for
+  autonomous planning,'' in \emph{Proceedings of the 28th International Joint
+  Conference on Artificial Intelligence}, 2019.
+
+\bibitem{gemma3_2025}
+G.~Team, ``Gemma 3 technical report,'' \emph{arXiv preprint arXiv:2503.19786},
+  2025.
+
+\end{thebibliography}

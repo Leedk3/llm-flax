@@ -1,0 +1,27 @@
+{
+  "domain": "difficultlogistics_large",
+  "num_problems": 10,
+  "results": [
+    {
+      "avg_time": 111.5202648639679,
+      "success_rate": 0.1,
+      "avg_plan_length": 57.0,
+      "wall_time_s": 1193.8,
+      "config": "pure"
+    },
+    {
+      "avg_time": 120.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 701.8,
+      "config": "manual"
+    },
+    {
+      "avg_time": 120.0,
+      "success_rate": 0.0,
+      "avg_plan_length": 0.0,
+      "wall_time_s": 1196.5,
+      "config": "llm_rules_gemma3-12b"
+    }
+  ]
+}
