@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.23)  15 JUL 2026 23:13
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.23)  15 JUL 2026 23:33
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -702,34 +702,34 @@ File: l3backend-pdftex.def 2024-01-04 L3 backend support: PDF output (pdfTeX)
 (./main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 47.
-LaTeX Font Info:    ... okay on input line 47.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 46.
+LaTeX Font Info:    ... okay on input line 46.
 
 -- Lines per column: 56 (exact).
-LaTeX Font Info:    Trying to load font information for T1+ptm on input line 47
+LaTeX Font Info:    Trying to load font information for T1+ptm on input line 46
 .
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/t1ptm.fd
 File: t1ptm.fd 2001/06/04 font definitions for T1/ptm.
 )
 
 LaTeX Font Warning: Font shape `T1/ptm/n/n' undefined
-(Font)              using `T1/ptm/m/n' instead on input line 47.
+(Font)              using `T1/ptm/m/n' instead on input line 46.
 
 (/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
@@ -753,7 +753,7 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring ON on input line 47.
+Package hyperref Info: Link coloring ON on input line 46.
 
 (./main.out) (./main.out)
 \@outlinefile=\write3
@@ -765,9 +765,9 @@ Package caption Info: End \AtBeginDocument code.
 <images/bullet.png, id=122, 12.045pt x 35.38219pt>
 File: images/bullet.png Graphic file (type png)
 <use images/bullet.png>
-Package pdftex.def Info: images/bullet.png  used on input line 52.
+Package pdftex.def Info: images/bullet.png  used on input line 51.
 (pdftex.def)             Requested size: 5.0pt x 14.6871pt.
-LaTeX Font Info:    Trying to load font information for T1+phv on input line 52
+LaTeX Font Info:    Trying to load font information for T1+phv on input line 51
 .
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/t1phv.fd
@@ -775,14 +775,14 @@ File: t1phv.fd 2020/03/25 scalable font definitions for T1/phv.
 )
 
 LaTeX Font Warning: Font shape `T1/phv/n/n' undefined
-(Font)              using `T1/phv/m/n' instead on input line 52.
+(Font)              using `T1/phv/m/n' instead on input line 51.
 
-LaTeX Font Info:    Trying to load font information for U+msa on input line 57.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 56.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 57.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 56.
 
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
@@ -790,36 +790,36 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 File: images/bullet.png Graphic file (type png)
 <use images/bullet.png>
-Package pdftex.def Info: images/bullet.png  used on input line 64.
+Package pdftex.def Info: images/bullet.png  used on input line 63.
 (pdftex.def)             Requested size: 5.0pt x 14.6871pt.
-LaTeX Font Info:    Calculating math sizes for size <9.9> on input line 71.
-LaTeX Font Info:    Calculating math sizes for size <6.6> on input line 71.
+LaTeX Font Info:    Calculating math sizes for size <9.9> on input line 70.
+LaTeX Font Info:    Calculating math sizes for size <6.6> on input line 70.
 
-Overfull \hbox (9.2679pt too wide) in paragraph at lines 71--71
+Overfull \hbox (9.2679pt too wide) in paragraph at lines 70--70
 []  
  []
 
 
-Overfull \hbox (9.2679pt too wide) in paragraph at lines 71--71
+Overfull \hbox (9.2679pt too wide) in paragraph at lines 70--70
 []  
  []
 
 
 LaTeX Font Warning: Font shape `T1/ptm/n/it' undefined
-(Font)              using `T1/ptm/n/n' instead on input line 77.
+(Font)              using `T1/ptm/n/n' instead on input line 76.
 
 
 Underfull \vbox (badness 3068) has occurred while \output is active []
 
 
-Underfull \hbox (badness 3954) in paragraph at lines 87--88
+Underfull \hbox (badness 3954) in paragraph at lines 86--87
 []\T1/ptm/n/it/10 The re-sult-ing frame-work, LLM-Flax, con-tains three
  []
 
 <images/Logo.png, id=130, 206.27063pt x 53.44969pt>
 File: images/Logo.png Graphic file (type png)
 <use images/Logo.png>
-Package pdftex.def Info: images/Logo.png  used on input line 90.
+Package pdftex.def Info: images/Logo.png  used on input line 89.
 (pdftex.def)             Requested size: 91.32pt x 23.66309pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -847,47 +847,47 @@ Underfull \hbox (badness 10000) has occurred while \output is active
  <./images/Logo.png> <./images/bullet.png>]
 
 LaTeX Font Warning: Font shape `T1/ptm/n/sc' undefined
-(Font)              using `T1/ptm/n/n' instead on input line 143.
+(Font)              using `T1/ptm/n/n' instead on input line 142.
 
 <figures/architecture.pdf, id=175, 614.295pt x 366.36874pt>
 File: figures/architecture.pdf Graphic file (type pdf)
 <use figures/architecture.pdf>
-Package pdftex.def Info: figures/architecture.pdf  used on input line 154.
+Package pdftex.def Info: figures/architecture.pdf  used on input line 153.
 (pdftex.def)             Requested size: 429.35658pt x 256.07063pt.
 LaTeX Font Info:    Trying to load font information for T1+pcr on input line 16
-3.
+2.
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/t1pcr.fd
 File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
 )
 
 LaTeX Font Warning: Font shape `T1/pcr/n/n' undefined
-(Font)              using `T1/pcr/m/n' instead on input line 163.
+(Font)              using `T1/pcr/m/n' instead on input line 162.
 
 
-Underfull \hbox (badness 5417) in paragraph at lines 162--165
+Underfull \hbox (badness 5417) in paragraph at lines 161--164
 \T1/ptm/n/sc/10 unary pred-i-cate(s) iden-ti-fy-ing re-mov-able ob-jects; (iii)
 
  []
 
 
-Underfull \hbox (badness 2626) in paragraph at lines 162--165
+Underfull \hbox (badness 2626) in paragraph at lines 161--164
 \T1/ptm/n/sc/10 move; (iv) \T1/pcr/n/n/10 delete_effects\T1/ptm/n/sc/10 ---lite
 rals to re-tract; (v)
  []
 
 
 LaTeX Font Warning: Font shape `T1/pcr/n/it' undefined
-(Font)              using `T1/pcr/n/n' instead on input line 178.
+(Font)              using `T1/pcr/n/n' instead on input line 177.
 
 
-Underfull \hbox (badness 7186) in paragraph at lines 180--184
+Underfull \hbox (badness 7186) in paragraph at lines 179--183
 \T1/ptm/n/sc/10 is also in-cluded. The man-u-ally crafted com-ple-men-
  []
 
 <images/notaglineLogo.png, id=176, 169.38281pt x 42.91031pt>
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 184.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 183.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -909,7 +909,7 @@ Underfull \vbox (badness 1917) has occurred while \output is active []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 227.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 226.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -927,40 +927,40 @@ Underfull \hbox (badness 10000) has occurred while \output is active
  []
 
 [3 <./figures/architecture.pdf>]
-Underfull \hbox (badness 2913) in paragraph at lines 242--245
+Underfull \hbox (badness 2913) in paragraph at lines 241--244
 \T1/ptm/n/sc/10 This con-fig-u-ra-tion uses nei-ther hand-written rules nor
  []
 
 <figures/sr_scale.pdf, id=219, 678.66861pt x 212.97505pt>
 File: figures/sr_scale.pdf Graphic file (type pdf)
 <use figures/sr_scale.pdf>
-Package pdftex.def Info: figures/sr_scale.pdf  used on input line 305.
+Package pdftex.def Info: figures/sr_scale.pdf  used on input line 304.
 (pdftex.def)             Requested size: 429.35658pt x 134.7372pt.
 <figures/pipeline_10x10_hard_16.pdf, id=220, 697.17924pt x 480.84618pt>
 File: figures/pipeline_10x10_hard_16.pdf Graphic file (type pdf)
 <use figures/pipeline_10x10_hard_16.pdf>
 Package pdftex.def Info: figures/pipeline_10x10_hard_16.pdf  used on input line
- 312.
+ 311.
 (pdftex.def)             Requested size: 429.35658pt x 296.13318pt.
 
-Underfull \hbox (badness 2671) in paragraph at lines 327--327
+Underfull \hbox (badness 2671) in paragraph at lines 326--326
 []\T1/ptm/n/sc/10 TABLE 1: |Flax (man-ual rules) vs. LLM-Flax (LLM-
  []
 
 <figures/sr_heatmap_edit.pdf, id=226, 707.86847pt x 185.9754pt>
 File: figures/sr_heatmap_edit.pdf Graphic file (type pdf)
 <use figures/sr_heatmap_edit.pdf>
-Package pdftex.def Info: figures/sr_heatmap_edit.pdf  used on input line 384.
+Package pdftex.def Info: figures/sr_heatmap_edit.pdf  used on input line 383.
 (pdftex.def)             Requested size: 505.12177pt x 132.71033pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 392--396
+Underfull \hbox (badness 10000) in paragraph at lines 391--395
 \T1/ptm/n/sc/10 The \T1/pcr/n/it/10 pre_compute\T1/ptm/n/sc/10 , \T1/pcr/n/it/1
 0 precond\T1/ptm/n/sc/10 , \T1/pcr/n/it/10 delete_objects\T1/ptm/n/sc/10 ,
  []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 396.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 395.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -981,14 +981,14 @@ Underfull \hbox (badness 10000) has occurred while \output is active
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 2818) in paragraph at lines 417--421
+Underfull \hbox (badness 2818) in paragraph at lines 416--420
 \T1/ptm/b/n/10 Complementary rules  \T1/ptm/n/sc/10 Gemma3-12B gen-er-ates seve
 n
  []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 421.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 420.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -1010,7 +1010,7 @@ Underfull \vbox (badness 1629) has occurred while \output is active []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 484.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 483.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -1028,19 +1028,19 @@ Underfull \hbox (badness 10000) has occurred while \output is active
  []
 
 [6 <./figures/sr_heatmap_edit.pdf>]
-Underfull \hbox (badness 1389) in paragraph at lines 535--536
+Underfull \hbox (badness 1389) in paragraph at lines 534--535
 []\T1/ptm/n/sc/10 Before the ex-per-i-ments, we cor-rected ParsePred-i-cates
  []
 
 
-Underfull \hbox (badness 2012) in paragraph at lines 535--536
+Underfull \hbox (badness 2012) in paragraph at lines 534--535
 \T1/ptm/n/sc/10 so that hy-phen-ated names such as \T1/pcr/n/it/10 switch-for \
 T1/ptm/n/sc/10 and
  []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 571.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 570.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -1058,14 +1058,14 @@ Underfull \hbox (badness 10000) has occurred while \output is active
  []
 
 [7]
-Underfull \hbox (badness 4543) in paragraph at lines 657--659
+Underfull \hbox (badness 4543) in paragraph at lines 656--658
 []\T1/ptm/b/n/10 PLOI\T1/ptm/n/sc/10 : GNN-guided \T1/pcr/n/it/10 IncrementalPl
 anner \T1/ptm/n/sc/10 [[][]3[][]]
  []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 731.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 730.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -1088,32 +1088,32 @@ Underfull \vbox (badness 2020) has occurred while \output is active []
 <figures/vis/vis_all.pdf, id=349, 1074.6549pt x 665.2309pt>
 File: figures/vis/vis_all.pdf Graphic file (type pdf)
 <use figures/vis/vis_all.pdf>
-Package pdftex.def Info: figures/vis/vis_all.pdf  used on input line 748.
+Package pdftex.def Info: figures/vis/vis_all.pdf  used on input line 747.
 (pdftex.def)             Requested size: 624.95508pt x 386.85939pt.
 <figures/vis/vis_crossdomain.pdf, id=351, 680.56493pt x 477.12654pt>
 File: figures/vis/vis_crossdomain.pdf Graphic file (type pdf)
 <use figures/vis/vis_crossdomain.pdf>
 Package pdftex.def Info: figures/vis/vis_crossdomain.pdf  used on input line 75
-7.
+6.
 (pdftex.def)             Requested size: 479.86412pt x 336.41794pt.
 
-Underfull \hbox (badness 1910) in paragraph at lines 794--796
+Underfull \hbox (badness 1910) in paragraph at lines 793--795
 []\T1/ptm/n/sc/10 The logged prompt con-tains ap-prox-i-mately 3.5K to-
  []
 
 
-Underfull \hbox (badness 5374) in paragraph at lines 794--796
+Underfull \hbox (badness 5374) in paragraph at lines 793--795
 \T1/ptm/n/sc/10 kens, in-clud-ing the goal, all ob-ject names, and up
  []
 
 
-Underfull \hbox (badness 1460) in paragraph at lines 794--796
+Underfull \hbox (badness 1460) in paragraph at lines 793--795
 \T1/ptm/n/sc/10 to 80 state facts. Ev-ery di-ag-nos-tic re-sponse ends with
  []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 797.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 796.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -1133,7 +1133,7 @@ Underfull \hbox (badness 10000) has occurred while \output is active
 [9]
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 797.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 796.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -1151,23 +1151,23 @@ Underfull \hbox (badness 10000) has occurred while \output is active
  []
 
 [10 <./figures/vis/vis_all.pdf>]
-Underfull \hbox (badness 10000) in paragraph at lines 797--801
+Underfull \hbox (badness 10000) in paragraph at lines 796--800
 \T1/ptm/b/n/10 Diagnosing the Stage 3 fail-ure di-rectly  [][] \T1/ptm/n/sc/10 
 We
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 797--801
+Underfull \hbox (badness 10000) in paragraph at lines 796--800
 \T1/ptm/n/sc/10 cap-tured the raw score dic-tio-nary be-fore ap-ply-ing
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 797--801
+Underfull \hbox (badness 10000) in paragraph at lines 796--800
 \T1/ptm/n/sc/10 the fall-back on eight prob-lems from each set-ting
  []
 
 
-Overfull \hbox (2.56413pt too wide) in paragraph at lines 797--801
+Overfull \hbox (2.56413pt too wide) in paragraph at lines 796--800
 \T1/ptm/n/sc/10 (\T1/pcr/n/it/10 results/stage3_diagnostic_*.json\T1/ptm/n/sc/1
 0 ). At $\OT1/cmr/m/n/10 12[]12$\T1/ptm/n/sc/10 ,
  []
@@ -1177,7 +1177,7 @@ Underfull \vbox (badness 6893) has occurred while \output is active []
 
 File: images/notaglineLogo.png Graphic file (type png)
 <use images/notaglineLogo.png>
-Package pdftex.def Info: images/notaglineLogo.png  used on input line 815.
+Package pdftex.def Info: images/notaglineLogo.png  used on input line 814.
 (pdftex.def)             Requested size: 91.32pt x 23.1352pt.
 
 Overfull \hbox (505.12177pt too wide) has occurred while \output is active
@@ -1195,9 +1195,6 @@ Underfull \hbox (badness 10000) has occurred while \output is active
  []
 
 [11 <./figures/vis/vis_crossdomain.pdf>] (./main.bbl
-Underfull \vbox (badness 8151) has occurred while \output is active []
-
-
 Underfull \hbox (badness 2707) in paragraph at lines 105--108
 []\T1/ptm/n/it/7.61 B. Liu, Y. Jiang, X. Zhang, et al., ``LLM+P: Em-pow-er-ing 
 large
@@ -1275,7 +1272,7 @@ rw/helvetic/uhvbo8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/helvetic
 /uhvr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></u
 sr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texliv
 e/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (12 pages, 6538433 bytes).
+Output written on main.pdf (12 pages, 6538527 bytes).
 PDF statistics:
  577 PDF objects out of 1000 (max. 8388607)
  440 compressed objects within 5 object streams
